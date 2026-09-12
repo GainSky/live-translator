@@ -1,0 +1,143 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use tauri::{AppHandle, Manager, State};
+use tauri::Emitter;
+
+use crate::error::{AppError, AppResult};
+use crate::pipeline::PipelineManager;
+use crate::settings::Settings;
+use crate::SettingsState;
+
+/// 枚举音频源并做一次信号测试（每源并行探测 ~0.7s）：
+/// 检测到信号的源带 signal 峰值并排序在前（readme §5.2 音源页"有声标识"）
+#[tauri::command]
+pub async fn list_audio_devices() -> AppResult<Vec<crate::audio::AudioDeviceDescriptor>> {
+    tokio::task::spawn_blocking(|| {
+        let mut devs = crate::audio::enumerate_devices()?;
+        let ids: Vec<String> = devs.iter().map(|d| d.id.clone()).collect();
+        let peaks: HashMap<String, f32> =
+            crate::audio::probe::probe_parallel(&ids).into_iter().collect();
+        for d in devs.iter_mut() {
+            d.signal = peaks.get(&d.id).copied().unwrap_or(0.0);
+        }
+        // 有信号的排前（峰值降序），无信号的保持原顺序（稳定排序）
+        let th = crate::audio::probe::SIGNAL_THRESHOLD;
+        devs.sort_by(|a, b| {
+            let a_on = a.signal >= th;
+            let b_on = b.signal >= th;
+            b_on.cmp(&a_on).then(
+                b.signal
+                    .partial_cmp(&a.signal)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
+        });
+        Ok(devs)
+    })
+    .await
+    .map_err(|e| AppError::Message(format!("信号测试任务失败: {e}")))?
+}
+
+#[tauri::command]
+pub fn start_pipeline(
+    app: AppHandle,
+    state: State<'_, PipelineManager>,
+    settings: State<'_, SettingsState>,
+    source_ids: Vec<String>,
+) -> AppResult<()> {
+    let s = settings.0.lock().unwrap().clone();
+    state.start(&app, source_ids, &s)
+}
+
+#[tauri::command]
+pub fn stop_pipeline(state: State<'_, PipelineManager>) -> AppResult<()> {
+    state.stop_all();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn current_session(state: State<'_, PipelineManager>) -> Option<crate::store::SessionInfo> {
+    state.current_session()
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, SettingsState>) -> Settings {
+    state.0.lock().unwrap().clone()
+}
+
+#[tauri::command]
+pub fn save_settings(
+    app: AppHandle,
+    state: State<'_, SettingsState>,
+    settings: Settings,
+) -> AppResult<()> {
+    // Windows: exe 同目录 | Linux/macOS: ~/.config/{identifier}
+    let dir = crate::settings::settings_dir(&app)?;
+    crate::settings::save(&dir, &settings)?;
+    *state.0.lock().unwrap() = settings;
+    tracing::info!("设置已保存至 {}", dir.join("settings.json").display());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn test_translation(
+    app: AppHandle,
+    pipeline: State<'_, PipelineManager>,
+    state: State<'_, SettingsState>,
+    text: String,
+    config: Option<crate::settings::TranslationSettings>,
+) -> AppResult<String> {
+    // 前端可传入界面草稿配置（未保存也能测）；否则用已保存配置
+    let mut cfg = config.unwrap_or_else(|| state.0.lock().unwrap().translation.clone());
+    // 显式测试：不受「启用翻译」开关限制
+    cfg.enabled = true;
+    let model_root = crate::models::resolve_model_root(&app)?;
+    let mut state_deg = crate::translate::DegradationState::default();
+    let outcome = crate::translate::translate_with_fallback(
+        &text,
+        None,
+        &cfg,
+        &mut state_deg,
+        &model_root,
+        &pipeline.translate_hub,
+    )
+    .await?;
+    Ok(format!("[{}] {}", outcome.provider, outcome.text))
+}
+
+#[tauri::command]
+pub fn export_transcripts(format: String) -> AppResult<String> {
+    let fmt = crate::store::export::ExportFormat::parse(&format)?;
+    // TODO(M5): 从 SessionStore 取当前会话记录，写入用户文档目录并返回路径
+    let out_dir = PathBuf::from(".");
+    crate::store::export::export(&[], fmt, &out_dir)?;
+    unreachable!("export() 在实现前总是返回 Err")
+}
+
+#[tauri::command]
+pub fn show_overlay(app: AppHandle) -> AppResult<()> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| AppError::Message("悬浮窗未初始化".into()))?;
+    window.show()?;
+    window.set_focus()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn hide_overlay(app: AppHandle) -> AppResult<()> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| AppError::Message("悬浮窗未初始化".into()))?;
+    window.hide()?;
+    Ok(())
+}
+
+// 事件上报辅助（M1 起流水线使用）：统一从此处 emit，避免散落
+pub fn emit_transcript(app: &AppHandle, payload: crate::events::TranscriptPayload) {
+    let _ = app.emit(crate::events::EV_TRANSCRIPT_NEW, payload);
+}
+
+pub fn emit_engine_state(app: &AppHandle, payload: crate::events::EngineStatePayload) {
+    let _ = app.emit(crate::events::EV_ENGINE_STATE, payload);
+}

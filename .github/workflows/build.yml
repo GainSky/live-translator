@@ -1,0 +1,78 @@
+name: build
+
+# 手动触发：Actions 页面 → build → Run workflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      # Windows 不启用 PipeWire feature（那是 Linux 专用）；
+      # WASAPI 采集与 wasapi 环回走无条件依赖
+      - name: Build (Windows x64)
+        run: pnpm tauri build --no-bundle -- --no-default-features
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-translator-windows-x64
+          path: src-tauri/target/release/live-translator.exe
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies (Tauri + audio)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
+            libasound2-dev clang libpipewire-0.3-dev patchelf
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Linux x64)
+        run: pnpm tauri build --no-bundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-translator-linux-x64
+          path: src-tauri/target/release/live-translator
+          if-no-files-found: error

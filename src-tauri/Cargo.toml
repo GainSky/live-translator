@@ -1,0 +1,70 @@
+[package]
+name = "live-translator"
+version = "0.1.0"
+description = "跨平台实时语音转写与翻译（Tauri 2 + Rust + sherpa-onnx）"
+edition = "2021"
+default-run = "live-translator"
+
+[lib]
+name = "live_translator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# tauri dev / cargo run 的默认二进制（避免与 smoke 工具歧义）
+[[bin]]
+name = "live-translator"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+
+# 音频采集（跨平台：Linux=ALSA 默认，Windows=WASAPI，macOS=CoreAudio）
+cpal = "0.18"
+
+# 语音识别：官方 sherpa-onnx Rust 绑定（sherpa-rs 已弃用）
+# static = 静态编译 sherpa-onnx C++（需 cmake + clang + alsa-lib）
+# TODO(M7): CUDA 加速版需换 onnxruntime GPU 构建并启用对应 feature
+sherpa-onnx = { version = "1.13.8", default-features = false, features = ["static"] }
+
+# ===== M3 翻译 =====
+# 简繁转换：纯 Rust OpenCC 实现（词典编译期内嵌，无系统依赖）
+ferrous-opencc = "0.4"
+# 内置本地翻译引擎：candle 纯 Rust 推理（Qwen2.5 GGUF 量化模型，进程内无外部进程）
+# 默认 CPU 内核；后续 CI 可启用 "cuda" feature 提速（需 nvcc 构建环境）
+candle-core = { version = "0.9", default-features = false }
+candle-nn = { version = "0.9", default-features = false }
+candle-transformers = { version = "0.9", default-features = false }
+tokenizers = "0.21"
+
+[features]
+# PipeWire 原生后端默认启用（Linux 开发机需 clang + libpipewire-0.3 头文件；
+# 无此环境时用 --no-default-features 退回 ALSA 兜底路径构建）
+default = ["audio-pipewire"]
+# Linux 原生 PipeWire 后端（麦克风 + STREAM_CAPTURE_SINK 环回，见 readme §2.1）
+# 构建依赖：clang（bindgen）+ libpipewire-0.3（Arch: pacman -S clang pipewire）
+audio-pipewire = ["cpal/pipewire"]
+# Linux PulseAudio/PipeWire-pulse 兼容后端（monitor 设备即普通 source）
+# 构建依赖：libpulse 头文件（Arch: libpulse 包）
+audio-pulseaudio = ["cpal/pulseaudio"]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Windows 系统声音环回（WASAPI Loopback；cpal 不支持环回）
+wasapi = "0.15"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
