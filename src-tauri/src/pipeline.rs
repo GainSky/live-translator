@@ -171,7 +171,7 @@ fn ensure_translate_worker(
     let app2 = app.clone();
     let model_root2 = model_root.clone();
     let hub = manager.translate_hub.clone();
-    if let Ok(h) = std::thread::Builder::new().name("translate".into()).spawn(move || {
+    if let Ok(_h) = std::thread::Builder::new().name("translate".into()).spawn(move || {
         translation_worker(app2, rx, stop_thread, model_root2, hub);
     }) {
         *manager.translate_worker.lock().unwrap() = Some(stop_worker);

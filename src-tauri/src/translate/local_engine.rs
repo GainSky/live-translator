@@ -10,7 +10,7 @@
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use candle_core::quantized::gguf_file;
 use candle_core::{D, Device, DType, Tensor};
