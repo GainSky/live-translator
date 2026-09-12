@@ -171,6 +171,7 @@ impl Default for AdvancedSettings {
 pub fn settings_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
     #[cfg(target_os = "windows")]
     {
+        let _ = app; // 便携模式不依赖 app 上下文
         let exe = std::env::current_exe()?;
         let dir = exe
             .parent()

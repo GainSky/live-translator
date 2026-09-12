@@ -7,8 +7,9 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 
-# 运行期产物
-models/
+# 模型文件（大文件不入库）；manifest.json 必须入库（运行时读取）
+/src-tauri/models/*
+!/src-tauri/models/manifest.json
 *.log
 *.gguf
 qwen*-tokenizer.json

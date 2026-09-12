@@ -40,7 +40,7 @@ pub async fn chat(
     timeout_secs: u64,
     system: &str,
     user: &str,
-    diag_tag: &str,
+    _diag_tag: &str,
 ) -> Result<String, HttpError> {
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -61,7 +61,7 @@ pub async fn chat(
 
         #[cfg(debug_assertions)]
         crate::translate::diag::log(
-            diag_tag,
+            _diag_tag,
             "request",
             &format!("POST {url} budget={budget} attempt={attempt} body={body}"),
         );
@@ -91,7 +91,7 @@ pub async fn chat(
             .to_string();
         #[cfg(debug_assertions)]
         crate::translate::diag::log(
-            diag_tag,
+            _diag_tag,
             "response",
             &format!("finish={finish} {}", truncate(&value.to_string(), 600)),
         );

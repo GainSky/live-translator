@@ -1,0 +1,59 @@
+[
+  {
+    "id": "silero-vad",
+    "name": "Silero VAD",
+    "urls": [
+      "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
+    ],
+    "sha256": "",
+    "sizeBytes": 2313787,
+    "dest": "silero_vad.onnx",
+    "required": true
+  },
+  {
+    "id": "sense-voice-int8",
+    "name": "SenseVoice-Small (中/英/日/韩/粤, int8)",
+    "urls": [
+      "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2"
+    ],
+    "sha256": "",
+    "sizeBytes": null,
+    "dest": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17/",
+    "required": true
+  },
+  {
+    "id": "whisper-small-int8",
+    "name": "Whisper small int8（后续版本启用）",
+    "urls": [
+      "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2"
+    ],
+    "sha256": "",
+    "sizeBytes": null,
+    "dest": "sherpa-onnx-whisper-small/",
+    "required": false
+  },
+  {
+    "id": "qwen2.5-3b-instruct-q4",
+    "name": "Qwen2.5-3B-Instruct Q4（内置离线翻译引擎）",
+    "urls": [
+      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4-k-m.gguf",
+      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4-k-m.gguf"
+    ],
+    "sha256": "",
+    "sizeBytes": 1925594528,
+    "dest": "qwen2.5-3b-instruct-q4_k_m.gguf",
+    "required": false
+  },
+  {
+    "id": "qwen2.5-tokenizer",
+    "name": "Qwen2.5 tokenizer（内置翻译引擎用）",
+    "urls": [
+      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/tokenizer.json",
+      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/tokenizer.json"
+    ],
+    "sha256": "",
+    "sizeBytes": 11493827,
+    "dest": "qwen2.5-tokenizer.json",
+    "required": false
+  }
+]
