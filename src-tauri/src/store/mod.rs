@@ -25,6 +25,8 @@ pub struct SessionStore {
     pub session_start: chrono::DateTime<chrono::Local>,
     conn: Mutex<Option<Connection>>,
     jsonl_path: Option<PathBuf>,
+    /// 会话内全部转写（内存副本，导出用；与 SQLite/JSONL 同步追加）
+    items: Mutex<Vec<TranscriptPayload>>,
 }
 
 impl SessionStore {
@@ -40,7 +42,13 @@ impl SessionStore {
             session_start: Local::now(),
             conn: Mutex::new(conn),
             jsonl_path: Some(jsonl_path),
+            items: Mutex::new(Vec::new()),
         }
+    }
+
+    /// 当前会话全部转写记录（内存副本，导出用）
+    pub fn items(&self) -> Vec<TranscriptPayload> {
+        self.items.lock().unwrap().clone()
     }
 
     pub fn info(&self) -> SessionInfo {
@@ -52,6 +60,7 @@ impl SessionStore {
 
     /// 追加一条转写记录（双写；单条失败仅记录日志，不影响流水线）
     pub fn append(&self, item: &TranscriptPayload) {
+        self.items.lock().unwrap().push(item.clone());
         {
             let mut guard = self.conn.lock().unwrap();
             if let Some(conn) = guard.as_mut() {

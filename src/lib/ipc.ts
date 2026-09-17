@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioDeviceInfo,
+  ModelInfo,
+  ModelProgress,
   TranslationConfig,
   EngineStatus,
   SessionInfo,
@@ -20,6 +22,7 @@ export const EVENTS = {
   translateState: "translate:state",
   audioLevel: "audio:level",
   pipelineError: "pipeline:error",
+  modelProgress: "model:progress",
 } as const;
 
 // ---- 命令 ----
@@ -47,6 +50,14 @@ export function saveSettings(settings: Settings): Promise<void> {
   return invoke("save_settings", { settings });
 }
 
+export function listModels(): Promise<ModelInfo[]> {
+  return invoke("list_models");
+}
+
+export function downloadModel(id: string): Promise<void> {
+  return invoke("download_model", { id });
+}
+
 export function testTranslation(
   text: string,
   config?: TranslationConfig,
@@ -56,8 +67,9 @@ export function testTranslation(
 
 export function exportTranscripts(
   format: "txt" | "md" | "srt" | "csv" | "json",
+  path: string,
 ): Promise<string> {
-  return invoke("export_transcripts", { format });
+  return invoke("export_transcripts", { format, path });
 }
 
 export function showOverlay(): Promise<void> {
@@ -86,6 +98,12 @@ export function onTranscriptUpdate(
     EVENTS.transcriptUpdate,
     (e) => cb(e.payload),
   );
+}
+
+export function onModelProgress(
+  cb: (p: ModelProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<ModelProgress>(EVENTS.modelProgress, (e) => cb(e.payload));
 }
 
 export function onTranslateState(

@@ -25,6 +25,7 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(PipelineManager::default())
         .manage(SettingsState(Mutex::new(Settings::default())))
         .setup(|app| {
@@ -60,6 +61,8 @@ pub fn run() {
             commands::save_settings,
             commands::test_translation,
             commands::export_transcripts,
+            commands::list_models,
+            commands::download_model,
             commands::show_overlay,
             commands::hide_overlay,
             commands::set_overlay_lock,

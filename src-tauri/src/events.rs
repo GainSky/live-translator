@@ -7,6 +7,7 @@ pub const EV_ENGINE_STATE: &str = "engine:state";
 pub const EV_TRANSLATE_STATE: &str = "translate:state";
 pub const EV_AUDIO_LEVEL: &str = "audio:level";
 pub const EV_PIPELINE_ERROR: &str = "pipeline:error";
+pub const EV_MODEL_PROGRESS: &str = "model:progress";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +49,17 @@ pub struct AudioLevelPayload {
 pub struct PipelineErrorPayload {
     pub source_id: Option<String>,
     pub message: String,
+}
+
+/// 模型下载进度（state: downloading/verifying/extracting/done/error）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelProgressPayload {
+    pub id: String,
+    pub state: String,
+    pub downloaded: u64,
+    pub total: u64,
+    pub error: Option<String>,
 }
 
 /// 译文回填事件（翻译队列完成后推送）

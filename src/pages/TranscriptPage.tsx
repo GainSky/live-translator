@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { MainFontControl } from "@/components/FontPopover";
 import { exportTranscripts, hideOverlay, setOverlayLock, showOverlay } from "@/lib/ipc";
+import { save } from "@tauri-apps/plugin-dialog";
 
 const TRANSLATE_LABEL: Record<string, string> = {
   loading: "内置引擎加载中…",
@@ -38,10 +39,19 @@ export function TranscriptPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcripts.length]);
 
-  const onExport = (fmt: "txt" | "md" | "srt" | "csv" | "json") => {
-    exportTranscripts(fmt)
-      .then((p) => console.info("已导出:", p))
-      .catch((e) => console.warn("导出失败（M5 实现前为占位）:", e));
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const onExport = async (fmt: "txt" | "md" | "srt" | "csv" | "json") => {
+    try {
+      const path = await save({
+        defaultPath: `live-translator_${session?.sessionId ?? "session"}.${fmt}`,
+        filters: [{ name: fmt.toUpperCase(), extensions: [fmt] }],
+      });
+      if (!path) return;
+      const written = await exportTranscripts(fmt, path);
+      setExportMsg(`已导出: ${written}`);
+    } catch (e) {
+      setExportMsg(`导出失败: ${e}`);
+    }
   };
 
   return (
@@ -134,6 +144,12 @@ export function TranscriptPage() {
           </button>
         </div>
       </div>
+
+      {exportMsg && (
+        <div className="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-[1.05rem] text-muted-foreground">
+          {exportMsg}
+        </div>
+      )}
 
       {/* 状态条 */}
       {(lastError || (running && engineState?.status === "loading")) && (

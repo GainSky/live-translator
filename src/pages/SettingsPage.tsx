@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
-import { getSettings, saveSettings, testTranslation } from "@/lib/ipc";
+import {
+  downloadModel,
+  onModelProgress,
+  getSettings,
+  listModels,
+  saveSettings,
+  testTranslation,
+} from "@/lib/ipc";
 import { useAppStore } from "@/stores/appStore";
 import { FontPopover } from "@/components/FontPopover";
-import type { Settings } from "@/types";
+import type { ModelInfo, Settings } from "@/types";
 
 const SOURCE_LANGS = [
   ["auto", "自动检测"],
@@ -30,6 +37,12 @@ export function SettingsPage() {
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  // 模型管理
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [modelsDir, setModelsDir] = useState<string>("");
+  const [dlProgress, setDlProgress] = useState<
+    Record<string, { downloaded: number; total: number }>
+  >({});
   // 翻译测试
   const [testText, setTestText] = useState("今天天气真不错，适合出去走走。");
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -39,7 +52,28 @@ export function SettingsPage() {
     getSettings()
       .then((s) => setDraft(s))
       .catch((e) => console.warn("载入设置失败:", e));
+    refreshModels();
+    // 下载进度事件 → 进度条；完成后刷新状态
+    const un = onModelProgress((p) => {
+      setDlProgress((prev) => ({
+        ...prev,
+        [p.id]: { downloaded: p.downloaded, total: p.total },
+      }));
+      if (p.state === "done" || p.state === "error") {
+        refreshModels();
+      }
+    });
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const refreshModels = () => {
+    listModels()
+      .then(setModels)
+      .catch((e) => console.warn("模型清单载入失败:", e));
+  };
 
   if (!draft) {
     return <div className="p-6 text-sm text-muted-foreground">载入设置中…</div>;
@@ -347,6 +381,82 @@ export function SettingsPage() {
             {draft.appearance.overlayFont.family} · {draft.appearance.overlayFont.size}px
           </span>
         </Field>
+      </section>
+
+      {/* ===== 模型管理 ===== */}
+      <section className="space-y-3 rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[1.35rem] font-semibold">模型管理</h2>
+          <button
+            onClick={refreshModels}
+            className="rounded-md border border-border px-4 py-2 text-[1.05rem] hover:bg-accent"
+          >
+            刷新状态
+          </button>
+        </div>
+        {models.length === 0 && (
+          <p className="text-[1.05rem] text-muted-foreground">
+            未找到模型清单（models/manifest.json）。请确认模型目录正确，见 readme §10.2。
+          </p>
+        )}
+        <ul className="space-y-2">
+          {models.map((m) => {
+            const prog = dlProgress[m.id];
+            const pct =
+              prog && prog.total > 0
+                ? Math.round((prog.downloaded / prog.total) * 100)
+                : null;
+            return (
+              <li
+                key={m.id}
+                className="flex items-center gap-4 rounded-lg border border-border bg-background p-4"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[1.2rem] font-medium">{m.name}</span>
+                  <span className="text-[1.05rem] text-muted-foreground">
+                    {m.sizeBytes ? `≈${(m.sizeBytes / 1e9).toFixed(1)}GB · ` : ""}
+                    {m.required ? "必需" : "可选"}
+                    {" · "}
+                    {m.dest}
+                  </span>
+                </span>
+                {pct !== null && (
+                  <span className="h-3 w-32 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-primary"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                )}
+                <span
+                  className={
+                    "w-24 text-right text-[1.05rem] " +
+                    (m.exists ? "text-primary" : "text-muted-foreground")
+                  }
+                >
+                  {m.exists ? "✅ 已就绪" : "未下载"}
+                </span>
+                {!m.exists && (
+                  <button
+                    onClick={() =>
+                      downloadModel(m.id)
+                        .then(refreshModels)
+                        .catch((e) => setModelsDir(`下载失败: ${e}`))
+                    }
+                    className="rounded-md bg-primary px-4 py-2 text-[1.05rem] font-medium text-primary-foreground"
+                  >
+                    下载
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {modelsDir && <p className="text-[1.05rem] text-destructive">{modelsDir}</p>}
+        <p className="text-[1.05rem] leading-relaxed text-muted-foreground">
+          模型存放目录：models/（Windows 与 exe 同目录；Linux 见 readme
+          §10.2）。下载支持断点续传，完成后自动 sha256 校验与解压。
+        </p>
       </section>
 
       {/* ===== 高级 ===== */}

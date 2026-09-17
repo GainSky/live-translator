@@ -148,6 +148,27 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
+/** 模型状态（Rust models::ModelInfo） */
+export interface ModelInfo {
+  id: string;
+  name: string;
+  required: boolean;
+  exists: boolean;
+  sizeBytes: number | null;
+  sizeOnDisk: number | null;
+  dest: string;
+  downloading: boolean;
+}
+
+/** 模型下载进度（Rust events::ModelProgressPayload） */
+export interface ModelProgress {
+  id: string;
+  state: "downloading" | "verifying" | "extracting" | "done" | "error";
+  downloaded: number;
+  total: number;
+  error?: string;
+}
+
 /** 当前会话信息（Rust store::SessionInfo） */
 export interface SessionInfo {
   sessionId: string;

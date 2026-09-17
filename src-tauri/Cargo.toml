@@ -25,7 +25,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
@@ -48,6 +48,11 @@ candle-core = { version = "0.9", default-features = false }
 candle-nn = { version = "0.9", default-features = false }
 candle-transformers = { version = "0.9", default-features = false }
 tokenizers = "0.21"
+
+# ===== M5：导出/模型管理 =====
+tauri-plugin-dialog = "2"
+tar = "0.4"
+bzip2 = "0.5"
 
 [features]
 # PipeWire 原生后端默认启用（Linux 开发机需 clang + libpipewire-0.3 头文件；

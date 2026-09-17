@@ -1,3 +1,5 @@
+pub mod download;
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -55,7 +57,54 @@ pub fn resolve_model_root(app: &tauri::AppHandle) -> AppResult<std::path::PathBu
     Ok(app.path().app_data_dir()?.join("models"))
 }
 
-/// 下载模型（M5 实现：多镜像 + 断点续传 + 进度事件上报）
-pub fn download(_entry: &ModelEntry, _models_dir: &Path) -> AppResult<PathBuf> {
-    Err(AppError::NotImplemented("M5: 模型下载器".into()))
+/// 单个模型的状态（设置页模型管理用）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    pub id: String,
+    pub name: String,
+    pub required: bool,
+    pub exists: bool,
+    pub size_bytes: Option<u64>,
+    pub size_on_disk: Option<u64>,
+    pub dest: String,
+    pub downloading: bool,
+}
+
+/// 列出清单模型及其磁盘状态
+pub fn list_models(models_dir: &Path) -> AppResult<Vec<ModelInfo>> {
+    let entries = load_manifest(models_dir)?;
+    let active = download::active_ids();
+    let mut out = Vec::new();
+    for e in &entries {
+        let dest_path = models_dir.join(&e.dest);
+        let (exists, size_on_disk) = if e.dest.ends_with('/') {
+            (dest_path.is_dir(), None)
+        } else {
+            let m = std::fs::metadata(&dest_path).ok();
+            (m.is_some(), m.map(|m| m.len()))
+        };
+        out.push(ModelInfo {
+            id: e.id.clone(),
+            name: e.name.clone(),
+            required: e.required,
+            exists,
+            size_bytes: e.size_bytes,
+            size_on_disk,
+            dest: e.dest.clone(),
+            downloading: active.contains(&e.id),
+        });
+    }
+    Ok(out)
+}
+
+/// 下载模型（后台线程执行，进度经 model:progress 事件上报）
+pub fn download_in_background(app: tauri::AppHandle, models_dir: &Path, id: &str) -> AppResult<()> {
+    let entries = load_manifest(models_dir)?;
+    let entry = entries
+        .into_iter()
+        .find(|e| e.id == id)
+        .ok_or_else(|| AppError::Message(format!("清单中不存在模型: {id}")))?;
+    download::download_in_background(app, models_dir.to_path_buf(), entry);
+    Ok(())
 }

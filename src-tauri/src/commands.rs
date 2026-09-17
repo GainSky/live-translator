@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager, State};
 use tauri::Emitter;
@@ -106,12 +106,39 @@ pub async fn test_translation(
 }
 
 #[tauri::command]
-pub fn export_transcripts(format: String) -> AppResult<String> {
+pub fn list_models(
+    app: AppHandle,
+    state: State<'_, SettingsState>,
+) -> AppResult<Vec<crate::models::ModelInfo>> {
+    let _ = state;
+    let dir = crate::models::resolve_model_root(&app)?;
+    crate::models::list_models(&dir)
+}
+
+#[tauri::command]
+pub fn download_model(app: AppHandle, id: String) -> AppResult<()> {
+    let dir = crate::models::resolve_model_root(&app)?;
+    crate::models::download_in_background(app, &dir, &id)
+}
+
+#[tauri::command]
+pub fn export_transcripts(
+    state: State<'_, PipelineManager>,
+    format: String,
+    path: String,
+) -> AppResult<String> {
     let fmt = crate::store::export::ExportFormat::parse(&format)?;
-    // TODO(M5): 从 SessionStore 取当前会话记录，写入用户文档目录并返回路径
-    let out_dir = PathBuf::from(".");
-    crate::store::export::export(&[], fmt, &out_dir)?;
-    unreachable!("export() 在实现前总是返回 Err")
+    let (items, session_id, session_start) = state
+        .session_export_data()
+        .ok_or_else(|| AppError::Message("当前没有转写会话，请先开始一次转写".into()))?;
+    let written = crate::store::export::export(
+        &items,
+        fmt,
+        Path::new(&path),
+        &session_id,
+        &session_start,
+    )?;
+    Ok(written.display().to_string())
 }
 
 #[tauri::command]

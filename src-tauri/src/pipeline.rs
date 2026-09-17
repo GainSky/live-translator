@@ -36,6 +36,10 @@ pub struct PipelineManager {
     translate_tx: Mutex<Option<mpsc::Sender<TranslateJob>>>,
     /// 内置翻译引擎 Hub
     pub(crate) translate_hub: crate::translate::local_engine::EngineHub,
+    /// 最近一次活动（开始/停止转写），空闲卸载计时用
+    last_activity: Mutex<Option<std::time::Instant>>,
+    /// 看门狗线程只启动一次
+    watchdog_started: AtomicBool,
 }
 
 struct SourceHandle {
@@ -115,8 +119,22 @@ impl PipelineManager {
         self.session.lock().unwrap().as_ref().map(|s| s.info())
     }
 
+    /// 会话导出数据（记录列表 + 会话 id + 开始时间）
+    pub fn session_export_data(
+        &self,
+    ) -> Option<(Vec<crate::events::TranscriptPayload>, String, String)> {
+        self.session.lock().unwrap().as_ref().map(|s| {
+            (
+                s.items(),
+                s.session_id.clone(),
+                s.session_start.format("%Y-%m-%d %H:%M:%S").to_string(),
+            )
+        })
+    }
+
     /// 停止全部流水线（线程退出时释放采集流与 VAD；模型保留供下次快速启动）
     pub fn stop_all(&self) {
+        *self.last_activity.lock().unwrap() = Some(std::time::Instant::now());
         let mut sources = self.sources.lock().unwrap();
         for (id, h) in sources.drain() {
             h.stop.store(true, Ordering::SeqCst);
@@ -427,5 +445,36 @@ fn handle_segment(
         }
         Ok(_) => {} // 空句（如纯噪音）
         Err(e) => tracing::warn!("识别失败（{}）: {e}", desc.name),
+    }
+}
+
+/// 空闲卸载看门狗：每 60s 检查一次，无活动源且超过设定分钟数时
+/// 卸载 ASR 与内置翻译引擎（docs/porting-notes.md §4）
+fn idle_watchdog(app: AppHandle) {
+    use tauri::Manager;
+    loop {
+        std::thread::sleep(Duration::from_secs(60));
+        let Some(man) = app.try_state::<PipelineManager>() else {
+            return;
+        };
+        if !man.sources.lock().unwrap().is_empty() {
+            continue; // 转写进行中
+        }
+        let idle_minutes = app
+            .state::<SettingsState>()
+            .0
+            .lock()
+            .unwrap()
+            .advanced
+            .idle_unload_minutes;
+        let Some(last) = *man.last_activity.lock().unwrap() else {
+            continue;
+        };
+        if last.elapsed() >= Duration::from_secs(idle_minutes * 60) {
+            man.engine.unload();
+            man.translate_hub.unload();
+            *man.last_activity.lock().unwrap() = None; // 已卸载，待下次活动重新计时
+            tracing::info!("空闲超过 {idle_minutes} 分钟，模型已卸载");
+        }
     }
 }
