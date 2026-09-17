@@ -57,7 +57,7 @@ pub fn enumerate() -> AppResult<Vec<AudioDeviceDescriptor>> {
         out.push(make_desc(
             &id,
             &format!("{name}（系统声音）"),
-            Some(&id) == default_id.as_deref(),
+            default_id.as_deref() == Some(id.as_str()),
         ));
     }
     Ok(out)
@@ -98,11 +98,11 @@ fn open_endpoint(endpoint_id: &str) -> AppResult<wasapi::Device> {
     }
     enumerator
         .get_device(endpoint_id)
-        .map_err(|e| wasapi_err(format!("输出设备 {endpoint_id} 获取失败"), e))
+        .map_err(|e| wasapi_err(&format!("输出设备 {endpoint_id} 获取失败"), e))
 }
 
 pub fn open_default() -> AppResult<OpenedSource> {
-    let device = open_endpoint("default-loopback")?;
+    let _device = open_endpoint("default-loopback")?;
     Ok(OpenedSource {
         desc: make_desc("default-loopback", "系统声音（默认输出）", true),
         device: SourceDevice::WasapiLoopback { endpoint_id: "default-loopback".into() },
@@ -152,7 +152,7 @@ fn capture_loop(
 
     // 直接请求 16k 单声道 f32；EventsShared + autoconvert 由 WASAPI 完成 SRC/下混，
     // Render 设备 + Capture 方向 → 内部自动 LOOPBACK 标志
-    let format = WaveFormat::new(32, 32, &SampleType::Float, CAPTURE_RATE as i32, 1, None);
+    let format = WaveFormat::new(32, 32, &SampleType::Float, CAPTURE_RATE as usize, 1, None);
     let (def_time, _min) = audio_client
         .get_device_period()
         .map_err(|e| wasapi_err("设备周期获取失败", e))?;
@@ -216,11 +216,14 @@ fn capture_loop(
 /// 信号探测：临时起环回采集 700ms 测峰值（Windows 环回源专用）
 pub fn probe_peak(endpoint_id: &str) -> f32 {
     let (tx, rx) = std::sync::mpsc::channel::<Vec<f32>>();
-    let stopping = Arc::new(AtomicBool::new(true)); // 探测期错误回调静默
+    // 运行标志：初始 false（探测线程正常采集），结束后置位让线程退出
+    let stopping = Arc::new(AtomicBool::new(false));
+    let stopping_thread = stopping.clone();
+    let endpoint = endpoint_id.to_string();
     let handle = match std::thread::Builder::new()
         .name("probe-loopback".into())
         .spawn(move || {
-            if let Err(e) = capture_loop(endpoint_id, tx, stopping.clone()) {
+            if let Err(e) = capture_loop(&endpoint, tx, stopping_thread) {
                 tracing::debug!("环回探测失败: {e}");
             }
         }) {

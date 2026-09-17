@@ -367,6 +367,7 @@ live_translator/
 | 2026-09-12 | 音源信号测试 | **✅ 列表获取时并行探测，有声源排前 + 🔊 标识** | `list_audio_devices` 枚举后每源开流测峰值 700ms（每源一线程并行，总耗时 ≈0.7s 与数量无关）；阈值 0.01，有声源按峰值降序排前并在 UI 加「有声 🔊」徽标；实测 11 源 0.73s 完成，播放中的 sink 97%/应用流 95%、底噪麦克风 2%、静音源 0% 分层清晰 |
 | 2026-09-12 | OpenCC 误判修复 | **日文/韩文不再走简繁快路径** | 日文含汉字（CJK 区段）被 contains_cjk 误判为中文 → OpenCC 原样通过 → 译文=原文且远程翻译不触发；已加假名/谚文排除 + 单元回归测试（14/14）；默认目标语言改为简体中文（繁体选项下移），生效配置同步更新 |
 | 2026-09-12 | M3 翻译管线 | **✅ 完成**（串行队列/三态降级/OpenCC/译文回填/状态事件/三 Provider 设置） | 快路径：中文↔简繁 = OpenCC 即时（0 LLM 消耗）；LLM/远程走异步队列 + `transcript:update` 回填；降级 = 本地连接失败跳过会话/超时本句跳过/远程 3 连败冷却 30s/Google 兜底可开关；测试 10/10 |
+| 2026-09-12 | Windows CI 修复 | icon.ico 补齐（tauri-build 资源必需）/ .gitignore 误吞 src\/models / wasapi 0.24 Windows 类型适配（WaveFormat usize、probe 线程所有权） | CI 可编译性按轮次验证 |
 | 2026-09-12 | M1-Win 系统声音环回 | **✅ wasapi 0.24 真实实现** | Windows 下音源列表新增全部「系统声音」源（默认输出 + 各渲染设备，`wasapi:{endpoint_id}`）；设备级环回 = Render 设备 + Capture 方向初始化（wasapi-rs 内部自动 LOOPBACK 标志）；WASAPI autoconvert 直接输出 16k 单声道免重采样；按应用流捕获（进程级 LOOPBACK）留作后续增强 |
 | 2026-09-12 | 内置引擎选型 | **candle 纯 Rust 进程内推理 + Qwen2.5-3B Q4**（用户要求纯 Rust、不依赖 Ollama） | Qwen3.5-4B GGUF 为 `arch=qwen35`，candle 不支持（仅 qwen2），文件已移至工作区根目录留档；**性能实测（3700X CPU）**：加载 8s，但量化 vec_dot 单线程内存带宽封顶 → **~150s/句，不适合实时字幕**。本地跨语言快路径建议 = Ollama（local-http Provider，3070 上 1~3s/句）或远程 API；内置引擎定位为零依赖兜底（小段落离线翻译）。CPU 提速需多线程量化内核（candle 生态缺失）或 CUDA 构建（M7） |
 | | Windows GPU 构建 | 待定 | 1.0 倾向 CPU-only，CUDA 作可选发行版 |
