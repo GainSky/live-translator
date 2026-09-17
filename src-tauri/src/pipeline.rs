@@ -291,20 +291,43 @@ fn run_source(
     source_id: String,
 ) {
     let (tx, rx) = mpsc::channel::<Vec<f32>>();
-    let stream = match audio::capture::build_input_stream(&source.device, tx, stop.clone()) {
-        Ok(s) => s,
-        Err(e) => {
-            emit_error(&app, Some(&source.desc.id), e.to_string());
-            return;
+    // 双后端采集：cpal（麦克风/环回）或 WASAPI 环回（Windows，直出 16k mono）
+    let mut cpal_stream: Option<audio::capture::OpenedStream> = None;
+    let native_rate = match &source.device {
+        audio::SourceDevice::Cpal(dev) => {
+            let s = match audio::capture::build_input_stream(dev, tx, stop.clone()) {
+                Ok(s) => s,
+                Err(e) => {
+                    emit_error(&app, Some(&source.desc.id), e.to_string());
+                    return;
+                }
+            };
+            if let Err(e) = s.stream.play() {
+                emit_error(&app, Some(&source.desc.id), e.to_string());
+                return;
+            }
+            let rate = s.native_rate;
+            cpal_stream = Some(s);
+            rate
+        }
+        #[cfg(target_os = "windows")]
+        audio::SourceDevice::WasapiLoopback { endpoint_id } => {
+            match crate::audio::wasapi_loopback::spawn_capture(
+                endpoint_id.clone(),
+                tx,
+                stop.clone(),
+            ) {
+                Ok((rate, _handle)) => rate, // 16k 直出，无需重采样
+                Err(e) => {
+                    emit_error(&app, Some(&source.desc.id), e.to_string());
+                    return;
+                }
+            }
         }
     };
-    if let Err(e) = stream.stream.play() {
-        emit_error(&app, Some(&source.desc.id), e.to_string());
-        return;
-    }
-    tracing::info!("采集启动: {} ({}Hz, {}ch)", source.desc.name, stream.native_rate, source.desc.channels);
+    tracing::info!("采集启动: {} ({}Hz, {}ch)", source.desc.name, native_rate, source.desc.channels);
 
-    let mut resampler = audio::resample::Resampler::new(stream.native_rate, 16_000);
+    let mut resampler = audio::resample::Resampler::new(native_rate, 16_000);
     let mut segmenter = match Segmenter::new(&vad_params, &vad_model_path) {
         Ok(s) => s,
         Err(e) => {
@@ -338,7 +361,7 @@ fn run_source(
     for seg in segmenter.flush() {
         handle_segment(&app, &source.desc, &engine, &seg, &session, &translate_tx);
     }
-    drop(stream); // 采集流随线程退出释放
+    drop(cpal_stream); // cpal 采集流随线程退出释放（WASAPI 线程自持）
     // 运行表自清理（应用流消失导致的自然退出同样适用，便于该源可再次启动）
     sources_map.lock().unwrap().remove(&source_id);
     tracing::info!("采集停止: {}", source.desc.name);

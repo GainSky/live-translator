@@ -6,7 +6,7 @@
 
 use cpal::traits::{DeviceTrait, HostTrait};
 
-use super::{classify, AudioDeviceDescriptor, DeviceKind, OpenedSource};
+use super::{classify, AudioDeviceDescriptor, DeviceKind, OpenedSource, SourceDevice};
 use crate::error::{AppError, AppResult};
 
 pub const ID_PREFIX: &str = "cpal:";
@@ -67,7 +67,7 @@ pub fn open_default() -> AppResult<OpenedSource> {
         .ok_or_else(|| AppError::Message("无默认输入设备".into()))?;
     let desc = describe(&device, true)
         .ok_or_else(|| AppError::Message("默认输入设备不支持采集".into()))?;
-    Ok(OpenedSource { desc, device })
+    Ok(OpenedSource { desc, device: SourceDevice::Cpal(device) })
 }
 
 pub fn open(id_suffix: &str) -> AppResult<OpenedSource> {
@@ -77,7 +77,7 @@ pub fn open(id_suffix: &str) -> AppResult<OpenedSource> {
     for device in devices {
         if let Some(desc) = describe(&device, false) {
             if desc.name == id_suffix {
-                return Ok(OpenedSource { desc, device });
+                return Ok(OpenedSource { desc, device: SourceDevice::Cpal(device) });
             }
         }
     }

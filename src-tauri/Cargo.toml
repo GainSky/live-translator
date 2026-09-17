@@ -62,7 +62,7 @@ audio-pulseaudio = ["cpal/pulseaudio"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Windows 系统声音环回（WASAPI Loopback；cpal 不支持环回）
-wasapi = "0.15"
+wasapi = "0.24"
 
 [profile.release]
 codegen-units = 1

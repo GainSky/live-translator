@@ -222,12 +222,15 @@ fn cmd_capture(model_dir: Option<&str>, device_sub: Option<&str>, seconds: u64) 
         .unwrap_or_else(|e| panic!("模型加载失败: {e}"));
 
     let (tx, rx) = mpsc::channel::<Vec<f32>>();
-    let stream = audio::capture::build_input_stream(
-        &source.device,
-        tx,
-        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-    )
-        .unwrap_or_else(|e| panic!("打开采集流失败: {e}"));
+    let stream = match &source.device {
+        audio::SourceDevice::Cpal(dev) => audio::capture::build_input_stream(
+            dev,
+            tx,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .unwrap_or_else(|e| panic!("打开采集流失败: {e}")),
+        _ => panic!("该源类型在 smoke 下暂不支持（Windows 环回请用应用内测试）"),
+    };
     stream.stream.play().expect("启动采集流失败");
     println!("原生采样率: {}Hz", stream.native_rate);
 

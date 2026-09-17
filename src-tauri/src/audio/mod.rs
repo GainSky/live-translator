@@ -41,10 +41,19 @@ pub struct AudioDeviceDescriptor {
     pub signal: f32,
 }
 
-/// 已解析的可采集源（描述符 + cpal 设备句柄）
+/// 采集后端抽象：大多数源走 cpal；Windows 环回走 wasapi crate 独立采集
+#[derive(Debug, Clone)]
+pub enum SourceDevice {
+    Cpal(cpal::Device),
+    /// WASAPI 设备级环回（Render 设备 + Capture 方向 → 自动 LOOPBACK 标志）
+    #[cfg(target_os = "windows")]
+    WasapiLoopback { endpoint_id: String },
+}
+
+/// 已解析的可采集源（描述符 + 后端设备句柄）
 pub struct OpenedSource {
     pub desc: AudioDeviceDescriptor,
-    pub device: cpal::Device,
+    pub device: SourceDevice,
 }
 
 /// cpal 0.18 设备元数据 → 设备类型分类

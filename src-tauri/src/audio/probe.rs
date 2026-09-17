@@ -52,7 +52,7 @@ pub fn probe_parallel(ids: &[String]) -> Vec<(String, f32)> {
             .name(format!("probe:{id}"))
             .spawn(move || {
                 let peak = super::resolve_source(&id)
-                    .map(|src| probe_one(&src.device))
+                    .map(|src| probe_source(&src))
                     .unwrap_or(0.0);
                 (id, peak)
             })
@@ -64,4 +64,15 @@ pub fn probe_parallel(ids: &[String]) -> Vec<(String, f32)> {
         .into_iter()
         .filter_map(|h| h.join().ok())
         .collect()
+}
+
+/// 按后端分发探测：cpal 设备 / Windows WASAPI 环回
+pub fn probe_source(source: &super::OpenedSource) -> f32 {
+    match &source.device {
+        super::SourceDevice::Cpal(device) => probe_one(device),
+        #[cfg(target_os = "windows")]
+        super::SourceDevice::WasapiLoopback { endpoint_id } => {
+            super::wasapi_loopback::probe_peak(endpoint_id)
+        }
+    }
 }

@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use cpal::traits::{DeviceTrait, HostTrait};
 
-use super::{AudioDeviceDescriptor, DeviceKind, OpenedSource};
+use super::{AudioDeviceDescriptor, DeviceKind, OpenedSource, SourceDevice};
 use crate::error::{AppError, AppResult};
 
 pub const ID_PREFIX: &str = "pw:";
@@ -160,7 +160,7 @@ pub fn open_default() -> AppResult<OpenedSource> {
         .ok_or_else(|| AppError::Message("PipeWire 无默认输入设备".into()))?;
     let desc = describe(&device, true, None)
         .ok_or_else(|| AppError::Message("默认输入设备不支持采集".into()))?;
-    Ok(OpenedSource { desc, device })
+    Ok(OpenedSource { desc, device: SourceDevice::Cpal(device) })
 }
 
 /// 按节点名（应用流可带 #序号）打开设备
@@ -198,13 +198,13 @@ pub fn open(id_suffix: &str) -> AppResult<OpenedSource> {
                 *n += 1;
                 if seq == Some(*n) {
                     if let Some(desc) = describe(&device, false, Some(*n)) {
-                        return Ok(OpenedSource { desc, device });
+                        return Ok(OpenedSource { desc, device: SourceDevice::Cpal(device) });
                     }
                 }
             }
         } else if node == base && seq.is_none() {
             if let Some(desc) = describe(&device, false, None) {
-                return Ok(OpenedSource { desc, device });
+                return Ok(OpenedSource { desc, device: SourceDevice::Cpal(device) });
             }
         }
     }
