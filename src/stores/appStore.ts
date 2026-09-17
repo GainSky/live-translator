@@ -50,6 +50,12 @@ interface AppState {
   setTranslateState: (s: { status: string; detail?: string } | null) => void;
   lastError: string | null;
   setLastError: (e: string | null) => void;
+
+  // ---- 悬浮窗（主窗侧控制） ----
+  overlayVisible: boolean;
+  overlayLocked: boolean;
+  setOverlayVisible: (v: boolean) => void;
+  setOverlayLocked: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -110,6 +116,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTranslateState: (translateState) => set({ translateState }),
   lastError: null,
   setLastError: (lastError) => set({ lastError }),
+
+  overlayVisible: false,
+  overlayLocked: false,
+  setOverlayVisible: (overlayVisible) => set({ overlayVisible }),
+  setOverlayLocked: (overlayLocked) => set({ overlayLocked }),
 }));
 
 /** 常见字体候选（含 CJK；Linux/Windows 通用 + 自定义输入兜底） */

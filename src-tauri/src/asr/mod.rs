@@ -33,9 +33,15 @@ pub trait ASREngine: Send + Sync {
     fn transcribe(&self, samples_16k: &[f32]) -> AppResult<TranscriptCandidate>;
 }
 
-/// 引擎共享器：全进程只加载一份模型，多路音频源复用（省内存）
+/// 引擎共享器：全进程只加载一份模型，多路音频源复用（省内存）。
+/// 记录加载时的源语言——设置变更后下次转写自动重载（语言 token 在模型加载时注入）
 pub struct EngineHub {
-    inner: Mutex<Option<Arc<SenseVoiceEngine>>>,
+    inner: Mutex<Option<LoadedEngine>>,
+}
+
+struct LoadedEngine {
+    source_lang: String,
+    engine: Arc<SenseVoiceEngine>,
 }
 
 impl Default for EngineHub {
@@ -45,7 +51,7 @@ impl Default for EngineHub {
 }
 
 impl EngineHub {
-    /// 按需加载（首次调用加载，其后复用）
+    /// 按需加载；源语言与已加载不一致时自动重载（约 3s，日志可见）
     pub fn get_or_load(
         &self,
         model_root: &Path,
@@ -53,14 +59,25 @@ impl EngineHub {
         on_state: impl Fn(EngineStatus, Option<String>),
     ) -> AppResult<Arc<SenseVoiceEngine>> {
         let mut guard = self.inner.lock().unwrap();
-        if let Some(engine) = guard.as_ref() {
-            return Ok(engine.clone());
+        if let Some(loaded) = guard.as_ref() {
+            if loaded.source_lang == source_lang {
+                return Ok(loaded.engine.clone());
+            }
+            tracing::info!(
+                "源语言变更: {} -> {}，重载识别引擎",
+                loaded.source_lang,
+                source_lang
+            );
+            guard.take();
         }
         on_state(EngineStatus::Loading, None);
         match SenseVoiceEngine::load(model_root, source_lang) {
             Ok(engine) => {
                 let arc = Arc::new(engine);
-                *guard = Some(arc.clone());
+                *guard = Some(LoadedEngine {
+                    source_lang: source_lang.to_string(),
+                    engine: arc.clone(),
+                });
                 on_state(EngineStatus::Ready, None);
                 Ok(arc)
             }

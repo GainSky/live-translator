@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { MainFontControl } from "@/components/FontPopover";
-import { exportTranscripts } from "@/lib/ipc";
+import { exportTranscripts, hideOverlay, setOverlayLock, showOverlay } from "@/lib/ipc";
 
 const TRANSLATE_LABEL: Record<string, string> = {
   loading: "内置引擎加载中…",
@@ -25,7 +25,12 @@ export function TranscriptPage() {
   const translateState = useAppStore((s) => s.translateState);
   const session = useAppStore((s) => s.session);
   const running = useAppStore((s) => s.running);
+  const overlayVisible = useAppStore((s) => s.overlayVisible);
+  const overlayLocked = useAppStore((s) => s.overlayLocked);
+  const setOverlayVisible = useAppStore((s) => s.setOverlayVisible);
+  const setOverlayLocked = useAppStore((s) => s.setOverlayLocked);
   const clearTranscripts = useAppStore((s) => s.clearTranscripts);
+  const setLastError = useAppStore((s) => s.setLastError);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +71,50 @@ export function TranscriptPage() {
           </span>
         )}
         <MainFontControl />
+        <button
+          onClick={() => {
+            if (overlayVisible) {
+              hideOverlay()
+                .then(() => {
+                  setOverlayVisible(false);
+                  setOverlayLocked(false);
+                })
+                .catch((e) => setLastError(`悬浮窗操作失败: ${e}`));
+            } else {
+              showOverlay()
+                .then(() => setOverlayVisible(true))
+                .catch((e) => setLastError(`悬浮窗操作失败: ${e}`));
+            }
+          }}
+          className={
+            "rounded-md border px-4 py-2 text-[1.15rem] " +
+            (overlayVisible
+              ? "border-primary/60 bg-primary/15 text-primary"
+              : "border-border hover:bg-accent")
+          }
+          title="桌面歌词模式悬浮窗（可拖动到任意位置）"
+        >
+          {overlayVisible ? "悬浮窗开" : "悬浮窗关"}
+        </button>
+        {overlayVisible && (
+          <button
+            onClick={() => {
+              const next = !overlayLocked;
+              setOverlayLock(next)
+                .then(() => setOverlayLocked(next))
+                .catch((e) => setLastError(`锁定失败: ${e}`));
+            }}
+            className={
+              "rounded-md border px-4 py-2 text-[1.15rem] " +
+              (overlayLocked
+                ? "border-amber-500/60 bg-amber-500/10 text-amber-500"
+                : "border-border hover:bg-accent")
+            }
+            title={overlayLocked ? "已锁定：悬浮窗点击穿透，鼠标操作落到下层窗口" : "锁定悬浮窗（点击穿透到下层窗口）"}
+          >
+            {overlayLocked ? "🔒 已锁定" : "🔓 未锁定"}
+          </button>
+        )}
         <div className="ml-auto flex flex-wrap gap-2">
           {(["txt", "md", "srt", "csv", "json"] as const).map((f) => (
             <button

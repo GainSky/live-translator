@@ -139,7 +139,7 @@ export function SettingsPage() {
           </Field>
         </div>
         <p className="text-xs text-muted-foreground">
-          引擎：SenseVoice-Small int8 + Silero VAD（默认参数移植自参考实现）。VAD 参数变更在下次「开始转写」时生效。
+          引擎：SenseVoice-Small int8 + Silero VAD（默认参数移植自参考实现）。源语言会作为语言参数注入识别模型（强制判定，提升准确率）；源语言/VAD 参数变更在下次「开始转写」时生效（引擎自动重载，约 3 秒）。
         </p>
       </section>
 

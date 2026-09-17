@@ -68,6 +68,10 @@ export function hideOverlay(): Promise<void> {
   return invoke("hide_overlay");
 }
 
+export function setOverlayLock(locked: boolean): Promise<void> {
+  return invoke("set_overlay_lock", { locked });
+}
+
 // ---- 事件订阅 ----
 export function onTranscript(
   cb: (item: TranscriptItem) => void,

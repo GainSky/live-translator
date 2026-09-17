@@ -16,6 +16,9 @@ pub const TOKENS_FILE: &str = "tokens.txt";
 
 pub struct SenseVoiceEngine {
     recognizer: sherpa_onnx::OfflineRecognizer,
+    /// 强制语言（设置非 auto 时）——Rust 绑定的结果不含 lang 字段，
+    /// 强制语言时直接用配置值，比从文本猜更可靠
+    forced_lang: Option<String>,
 }
 
 impl SenseVoiceEngine {
@@ -46,7 +49,12 @@ impl SenseVoiceEngine {
             AppError::Message("SenseVoice 加载失败（onnx runtime 初始化错误）".into())
         })?;
         tracing::info!("SenseVoice 模型加载完成");
-        Ok(Self { recognizer })
+        let forced_lang = if source_lang == "auto" || source_lang.is_empty() {
+            None
+        } else {
+            Some(map_source_lang(source_lang))
+        };
+        Ok(Self { recognizer, forced_lang })
     }
 }
 
@@ -63,7 +71,11 @@ impl ASREngine for SenseVoiceEngine {
             .get_result()
             .ok_or_else(|| AppError::Message("识别结果为空".into()))?;
         let raw = result.text.clone();
-        let lang = detect_lang_tag(&raw).map(str::to_string);
+        // 语言判定优先级：强制语言（用户设置）> 输出标签 > None（下游启发式兜底）
+        let lang = self
+            .forced_lang
+            .clone()
+            .or_else(|| detect_lang_tag(&raw).map(str::to_string));
         Ok(TranscriptCandidate { text: clean_sense_voice_text(&raw), lang })
     }
 }

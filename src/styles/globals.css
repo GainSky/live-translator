@@ -77,3 +77,16 @@ select.input option {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* 悬浮窗前句淡出：新句到达时旧句 2.4s 内淡出，播完自动卸载 */
+@keyframes overlay-fadeout {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.overlay-fadeout {
+  animation: overlay-fadeout 2.4s ease-out forwards;
+}

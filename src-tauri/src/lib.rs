@@ -62,16 +62,30 @@ pub fn run() {
             commands::export_transcripts,
             commands::show_overlay,
             commands::hide_overlay,
+            commands::set_overlay_lock,
         ])
         .on_window_event(|window, event| {
-            // 主窗口关闭 → 停止流水线并退出进程
-            // （悬浮窗常驻隐藏状态，否则关闭主窗后进程因 overlay 窗口存活而不退出）
-            if matches!(event, tauri::WindowEvent::Destroyed) && window.label() == "main" {
-                use tauri::Manager;
-                let app = window.app_handle();
-                tracing::info!("主窗口已关闭，停止流水线并退出");
-                app.state::<PipelineManager>().stop_all();
-                app.exit(0);
+            use tauri::Manager;
+            match event {
+                // 主窗口关闭 → 停止流水线、保存设置（含悬浮窗位置）并退出进程
+                // （悬浮窗常驻隐藏状态，否则关闭主窗后进程因 overlay 窗口存活而不退出）
+                tauri::WindowEvent::Destroyed if window.label() == "main" => {
+                    let app = window.app_handle();
+                    tracing::info!("主窗口已关闭，停止流水线并退出");
+                    app.state::<PipelineManager>().stop_all();
+                    let s = app.state::<SettingsState>().0.lock().unwrap().clone();
+                    if let Ok(dir) = crate::settings::settings_dir(app) {
+                        let _ = crate::settings::save(&dir, &s);
+                    }
+                    app.exit(0);
+                }
+                // 悬浮窗拖动 → 记忆位置（仅内存，退出时统一落盘）
+                tauri::WindowEvent::Moved(pos) if window.label() == "overlay" => {
+                    let app = window.app_handle();
+                    app.state::<SettingsState>().0.lock().unwrap().appearance.overlay_pos =
+                        Some(crate::settings::OverlayPos { x: pos.x, y: pos.y });
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())

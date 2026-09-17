@@ -124,6 +124,14 @@ pub struct AppearanceSettings {
     pub overlay_font: FontPref,
     /// "both" | "raw" | "translated"
     pub overlay_mode: String,
+    /// 悬浮窗位置（物理像素），拖动后记忆、启动恢复
+    pub overlay_pos: Option<OverlayPos>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OverlayPos {
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Default for AppearanceSettings {
@@ -132,8 +140,9 @@ impl Default for AppearanceSettings {
             theme: "system".into(),
             show_translated: true,
             main_font: Default::default(),
-            overlay_font: FontPref { family: "system-ui".into(), size: 22 },
+            overlay_font: FontPref { family: "system-ui".into(), size: 26 },
             overlay_mode: "both".into(),
+            overlay_pos: None,
         }
     }
 }

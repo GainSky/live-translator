@@ -115,12 +115,28 @@ pub fn export_transcripts(format: String) -> AppResult<String> {
 }
 
 #[tauri::command]
-pub fn show_overlay(app: AppHandle) -> AppResult<()> {
+pub fn show_overlay(app: AppHandle, state: State<'_, SettingsState>) -> AppResult<()> {
     let window = app
         .get_webview_window("overlay")
         .ok_or_else(|| AppError::Message("悬浮窗未初始化".into()))?;
+    // 恢复上次位置 + 重置锁定（穿透）
+    if let Some(pos) = state.0.lock().unwrap().appearance.overlay_pos {
+        window.set_position(tauri::PhysicalPosition::new(pos.x, pos.y))?;
+        window.set_ignore_cursor_events(false)?;
+    }
     window.show()?;
-    window.set_focus()?;
+    Ok(())
+}
+
+/// 悬浮窗锁定（点击穿透）：锁定后鼠标事件穿透到下层窗口，
+/// 解锁请用主窗转写页的「解锁悬浮窗」按钮
+#[tauri::command]
+pub fn set_overlay_lock(app: AppHandle, locked: bool) -> AppResult<()> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| AppError::Message("悬浮窗未初始化".into()))?;
+    window.set_ignore_cursor_events(locked)?;
+    tracing::info!("悬浮窗锁定: {locked}");
     Ok(())
 }
 
