@@ -1,0 +1,49 @@
+name: build-cuda
+
+# GPU（CUDA）构建：产出带内置翻译引擎 GPU 推理的 Windows 版本
+# 手动触发：Actions 页面 → build-cuda → Run workflow
+# 说明：runner 无物理 GPU → 构建 CUDA_COMPUTE_CAP 固定为 86（RTX 30/40 系通用，
+#       PTX 可在新卡上 JIT）。Linux GPU 版建议在目标机本地构建（./run-release.sh）。
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows-cuda:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v2
+        with:
+          cuda: "12.8.1"
+          method: "local"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Windows x64, CUDA)
+        run: pnpm tauri build --no-bundle -- --no-default-features --features cuda
+        env:
+          CUDA_PATH: ${{ env.CUDA_PATH }}
+          CUDA_COMPUTE_CAP: "86"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-translator-windows-x64-cuda
+          path: src-tauri/target/release/live-translator.exe
+          if-no-files-found: error

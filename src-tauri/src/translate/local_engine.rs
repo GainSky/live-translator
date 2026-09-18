@@ -52,6 +52,20 @@ impl LocalEngine {
 
         tracing::info!("加载内置翻译引擎: {}", gguf_path.display());
         let t0 = Instant::now();
+        // 设备选择：cuda feature 编译时 → 优先 GPU（任意 CUDA 显卡，通用实现），
+        // 初始化失败（无驱动/无设备）自动回退 CPU，保证功能可用
+        #[cfg(feature = "cuda")]
+        let device = match Device::new_cuda(0) {
+            Ok(d) => {
+                tracing::info!("内置翻译引擎使用 CUDA GPU 推理");
+                d
+            }
+            Err(e) => {
+                tracing::warn!("CUDA 初始化失败，回退 CPU 推理: {e}");
+                Device::Cpu
+            }
+        };
+        #[cfg(not(feature = "cuda"))]
         let device = Device::Cpu;
         let mut file = std::fs::File::open(&gguf_path)
             .map_err(|e| AppError::Message(format!("打开 GGUF 失败: {e}")))?;

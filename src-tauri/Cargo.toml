@@ -58,6 +58,10 @@ bzip2 = "0.5"
 # PipeWire 原生后端默认启用（Linux 开发机需 clang + libpipewire-0.3 头文件；
 # 无此环境时用 --no-default-features 退回 ALSA 兜底路径构建）
 default = ["audio-pipewire"]
+# CUDA 接入：内置翻译引擎 GPU 推理（任意 CUDA GPU，构建需 nvcc + CUDA toolkit）。
+# 启用后运行时自动检测：有可用 GPU → CUDA 推理，失败自动回退 CPU。
+# ASR（sherpa-onnx 绑定无 cuda feature）保持 CPU——SenseVoice CPU 已实时。
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 # Linux 原生 PipeWire 后端（麦克风 + STREAM_CAPTURE_SINK 环回，见 readme §2.1）
 # 构建依赖：clang（bindgen）+ libpipewire-0.3（Arch: pacman -S clang pipewire）
 audio-pipewire = ["cpal/pipewire"]

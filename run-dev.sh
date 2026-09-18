@@ -20,5 +20,18 @@ if [[ ! -f "$LIVE_TRANSLATOR_MODELS_DIR/silero_vad.onnx" ]]; then
 fi
 command -v pnpm >/dev/null || { echo "❌ 未安装 pnpm"; exit 1; }
 
+# CUDA 检测：有 nvcc 则启用内置翻译引擎的 GPU 推理（任意 CUDA 显卡，自动回退 CPU）
+# bindgen_cuda 构建期需要 GPU 算力值：优先 nvidia-smi 查询，回退 86（覆盖 RTX 30/40 系）
+CARGO_ARGS=""
+if command -v nvcc >/dev/null 2>&1; then
+  export CUDA_PATH="${CUDA_PATH:-/opt/cuda}"
+  export CUDA_COMPUTE_CAP="${CUDA_COMPUTE_CAP:-$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d '.')}"
+  export CUDA_COMPUTE_CAP="${CUDA_COMPUTE_CAP:-86}"
+  echo "✅ CUDA 就绪（compute_cap=$CUDA_COMPUTE_CAP）→ 内置翻译引擎 GPU 推理"
+  CARGO_ARGS="--features cuda"
+else
+  echo "ℹ️ 未检测到 nvcc → 翻译引擎使用 CPU（安装 cuda 包后自动启用 GPU）"
+fi
+
 echo "🚀 启动 LiveTranslator（开发模式）..."
-exec pnpm tauri dev
+exec pnpm tauri dev -- $CARGO_ARGS

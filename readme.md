@@ -438,7 +438,21 @@ pnpm install --store-dir "$PWD/.pnpm-store"                # pnpm 全局 store
 | `cargo run could not determine which binary to run` | 项目含 main + smoke 双二进制 | 已在 Cargo.toml 设 `default-run = "live-translator"` |
 | pnpm 报 `[ERR_SQLITE_ERROR] unable to open database file`（构建机沙箱） | 全局 store 在只读路径 | `.npmrc`/`pnpm-workspace.yaml` 已将 store 重定向至工作区 `.pnpm-store/` |
 
-### 10.5 Windows 版构建
+### 10.5 CUDA 接入（内置翻译引擎 GPU 推理）
+
+candle 纯 Rust 推理的 CPU 档速度有限（§9 实测），启用 CUDA 后内置翻译引擎在 GPU 上运行（RTX 3070 实测预期 1~3s/句）：
+
+| 项目 | 说明 |
+|---|---|
+| 启用方式 | `--features cuda`（脚本自动检测 nvcc 并启用）；需 CUDA toolkit（nvcc）+ NVIDIA 驱动 |
+| 通用性 | 任意 CUDA GPU（运行时自动检测，失败自动回退 CPU）；`CUDA_COMPUTE_CAP` 按目标 GPU 代际设置（86=RTX30系 / 89=40系），PTX 可在新卡 JIT |
+| 运行依赖 | Linux：驱动 ≥ CUDA 13 对应版本 + `libcudart/libcublas/libnvrtc`（/opt/cuda/lib64，ldconfig 已含）+ libcudnn9；Windows：CUDA toolkit 安装的运行库 |
+| ASR 说明 | sherpa-onnx 的 Rust 绑定未提供 CUDA feature，ASR 保持 CPU（SenseVoice CPU 已实时，无感知差异） |
+| CI | `.github/workflows/build-cuda.yml`（手动触发，产出 Windows CUDA 版 artifact；runner 无物理 GPU，`CUDA_COMPUTE_CAP=86` 显式指定） |
+
+实测环境（RTX 3070 / 驱动 610 / CUDA 13.3 / cuDNN 9）：`cargo check --features cuda` 编译通过；GPU 运行时验证需在桌面会话终端执行。
+
+### 10.6 Windows 版构建
 
 > ⚠️ 不要尝试在 Linux 直接交叉编译 Windows 版：Tauri Windows 端需要 MSVC 工具链，且 sherpa-onnx 需静态编译 C++，交叉环境极其脆弱。用以下两条可靠路径。
 

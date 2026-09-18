@@ -9,7 +9,15 @@ pnpm install --frozen-lockfile
 
 Write-Host "==> 构建 Windows x64（无安装器，产出独立 exe）" -ForegroundColor Cyan
 # --no-default-features：跳过 Linux 专用的 PipeWire feature
-pnpm tauri build --no-bundle -- --no-default-features
+# nvcc 可用时启用 CUDA（内置翻译引擎 GPU 推理）
+if (Get-Command nvcc -ErrorAction SilentlyContinue) {
+    Write-Host "✅ 检测到 nvcc → 启用 CUDA" -ForegroundColor Green
+    $env:CUDA_COMPUTE_CAP = "86"  # 目标 GPU 算力；可按显卡代际调整（如 89=40系）
+    pnpm tauri build --no-bundle -- --no-default-features --features cuda
+} else {
+    Write-Host "ℹ️ 未检测到 nvcc → 翻译引擎使用 CPU" -ForegroundColor Yellow
+    pnpm tauri build --no-bundle -- --no-default-features
+}
 
 $exe = "src-tauri\target\release\live-translator.exe"
 if (Test-Path $exe) {
