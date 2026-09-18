@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioDeviceInfo,
+  QueueItemInfo,
   ModelInfo,
   ModelProgress,
   TranslationConfig,
@@ -63,6 +64,18 @@ export function testTranslation(
   config?: TranslationConfig,
 ): Promise<string> {
   return invoke("test_translation", { text, config: config ?? null });
+}
+
+export function translateQueueList(): Promise<QueueItemInfo[]> {
+  return invoke("translate_queue_list");
+}
+
+export function translateQueueCancel(id: string): Promise<boolean> {
+  return invoke("translate_queue_cancel", { id });
+}
+
+export function translateQueueClear(): Promise<number> {
+  return invoke("translate_queue_clear");
 }
 
 export function exportTranscripts(

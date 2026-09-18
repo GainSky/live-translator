@@ -49,6 +49,23 @@ pub fn run() {
                 overlay.hide()?;
             }
 
+            // 翻译队列 worker：常驻（独立于转写生命周期；翻译禁用时挂起不消费）
+            let manager = app.state::<PipelineManager>();
+            let queue = manager.translate_queue.clone();
+            let hub = manager.translate_hub.clone();
+            let app_handle = app.handle().clone();
+            let app_for_root = app.handle().clone();
+            std::thread::Builder::new()
+                .name("translate".into())
+                .spawn(move || {
+                    // 模型目录在每次取任务时惰性解析（env/便携/数据目录均兼容）
+                    let model_root_getter = move || {
+                        crate::models::resolve_model_root(&app_for_root).ok()
+                    };
+                    crate::pipeline::translation_worker(app_handle, queue, model_root_getter, hub);
+                })
+                .ok();
+
             tracing::info!("LiveTranslator 初始化完成");
             Ok(())
         })
@@ -57,6 +74,9 @@ pub fn run() {
             commands::start_pipeline,
             commands::stop_pipeline,
             commands::current_session,
+            commands::translate_queue_list,
+            commands::translate_queue_cancel,
+            commands::translate_queue_clear,
             commands::get_settings,
             commands::save_settings,
             commands::test_translation,

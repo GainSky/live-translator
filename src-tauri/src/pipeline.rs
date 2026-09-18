@@ -21,6 +21,8 @@ use crate::settings::Settings;
 use crate::store::{SessionInfo, SessionStore};
 use crate::SettingsState;
 
+use serde::Serialize;
+
 /// 采集/识别/翻译流水线（每路音频源一个独立线程；识别引擎全进程共享一份模型）
 #[derive(Default)]
 pub struct PipelineManager {
@@ -30,12 +32,12 @@ pub struct PipelineManager {
     engine: EngineHub,
     /// 当前会话（从空闲启动时创建；停止后保留供 UI/导出，下次启动替换）
     session: Mutex<Option<Arc<SessionStore>>>,
-    /// 翻译队列 worker 的停止标志
-    translate_worker: Mutex<Option<Arc<AtomicBool>>>,
-    /// 翻译队列发送端（None = 未启用翻译）
-    translate_tx: Mutex<Option<mpsc::Sender<TranslateJob>>>,
+    /// 翻译队列（独立于转写运行：转写停止后队列继续消化，UI 可取消/清空）
+    pub(crate) translate_queue: Arc<Mutex<std::collections::VecDeque<TranslateJob>>>,
     /// 内置翻译引擎 Hub
     pub(crate) translate_hub: crate::translate::local_engine::EngineHub,
+    /// 翻译模型目录（worker 惰性使用）
+    translate_model_root: Mutex<Option<PathBuf>>,
     /// 最近一次活动（开始/停止转写），空闲卸载计时用
     last_activity: Mutex<Option<std::time::Instant>>,
     /// 看门狗线程只启动一次
@@ -63,6 +65,19 @@ impl PipelineManager {
             );
         })?;
 
+        // 翻译模型目录记录（worker 惰性读取；注意传目录本身而非 vad 文件路径）
+        *self.translate_model_root.lock().unwrap() = Some(model_root.clone());
+
+        // 空闲卸载看门狗（进程内仅启动一次）
+        *self.last_activity.lock().unwrap() = Some(std::time::Instant::now());
+        if !self.watchdog_started.swap(true, Ordering::SeqCst) {
+            let app2 = app.clone();
+            std::thread::Builder::new()
+                .name("idle-watchdog".into())
+                .spawn(move || idle_watchdog(app2))
+                .ok();
+        }
+
         let mut sources = self.sources.lock().unwrap();
         // 空闲启动 → 新会话（双写 SQLite + JSONL）
         if sources.is_empty() {
@@ -77,11 +92,6 @@ impl PipelineManager {
             .unwrap()
             .clone()
             .expect("会话已在上文创建");
-
-        // 翻译队列：启用时启动 worker（含内置引擎预热）
-        // 注意：传模型目录 model_root，而非 vad_model_path（VAD 是 models/ 下的一个文件，
-        // 曾误传导致内置引擎在 silero_vad.onnx 下找 GGUF → 预热失败）
-        ensure_translate_worker(self, app, &model_root, settings.translation.enabled);
 
         for id in selected {
             if sources.contains_key(&id) {
@@ -98,13 +108,13 @@ impl PipelineManager {
             let session2 = session.clone();
             let sources_map = self.sources.clone();
             let thread_id = id.clone();
-            let translate_tx = self.translate_tx.lock().unwrap().clone();
+            let translate_queue = self.translate_queue.clone();
             std::thread::Builder::new()
                 .name(format!("cap:{source_name}"))
                 .spawn(move || {
                     run_source(
                         app2, opened, engine2, vad_params, vad_model, session2,
-                        translate_tx, stop_thread, sources_map, thread_id,
+                        translate_queue, stop_thread, sources_map, thread_id,
                     )
                 })
                 .map_err(|e| AppError::Message(format!("采集线程启动失败: {e}")))?;
@@ -117,6 +127,44 @@ impl PipelineManager {
     /// 当前会话信息（UI 展示）
     pub fn current_session(&self) -> Option<SessionInfo> {
         self.session.lock().unwrap().as_ref().map(|s| s.info())
+    }
+
+    /// 翻译队列快照（UI 展示用）
+    pub fn queue_list(&self) -> Vec<QueueItemInfo> {
+        self.translate_queue
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|j| QueueItemInfo {
+                id: j.payload.id.clone(),
+                session_id: j.payload.session_id.clone(),
+                source_name: j.payload.source_name.clone(),
+                raw_preview: j.payload.raw_text.chars().take(48).collect(),
+            })
+            .collect()
+    }
+
+    /// 取消队列中指定任务；返回是否移除
+    pub fn queue_cancel(&self, id: &str) -> bool {
+        let mut q = self.translate_queue.lock().unwrap();
+        let before = q.len();
+        q.retain(|j| j.payload.id != id);
+        let removed = q.len() < before;
+        if removed {
+            tracing::info!("翻译任务已取消: {id}");
+        }
+        removed
+    }
+
+    /// 清空整个翻译队列；返回移除数量
+    pub fn queue_clear(&self) -> usize {
+        let mut q = self.translate_queue.lock().unwrap();
+        let n = q.len();
+        q.clear();
+        if n > 0 {
+            tracing::info!("翻译队列已清空: {n} 项");
+        }
+        n
     }
 
     /// 会话导出数据（记录列表 + 会话 id + 开始时间）
@@ -141,11 +189,7 @@ impl PipelineManager {
             tracing::info!("流水线停止: {id}");
         }
         drop(sources);
-        // 停止翻译 worker
-        if let Some(flag) = self.translate_worker.lock().unwrap().take() {
-            flag.store(true, Ordering::SeqCst);
-        }
-        self.translate_tx.lock().unwrap().take();
+        // 翻译队列独立运行：转写停止后队列中剩余任务继续翻译（readme §10.5 需求）
     }
 
     pub fn running_sources(&self) -> Vec<String> {
@@ -168,42 +212,22 @@ pub struct TranslateJob {
     pub payload: TranscriptPayload,
 }
 
-/// 启动/停止翻译队列 worker（设置禁用时确保停止）
-fn ensure_translate_worker(
-    manager: &PipelineManager,
-    app: &AppHandle,
-    model_root: &PathBuf,
-    enabled: bool,
-) {
-    // 停旧 worker
-    if let Some(flag) = manager.translate_worker.lock().unwrap().take() {
-        flag.store(true, Ordering::SeqCst);
-    }
-    manager.translate_tx.lock().unwrap().take(); // 断开通道 → worker 退出
-    if !enabled {
-        return;
-    }
-    let (tx, rx) = mpsc::channel::<TranslateJob>();
-    let stop_worker = Arc::new(AtomicBool::new(false));
-    let stop_thread = stop_worker.clone();
-    let app2 = app.clone();
-    let model_root2 = model_root.clone();
-    let hub = manager.translate_hub.clone();
-    if let Ok(_h) = std::thread::Builder::new().name("translate".into()).spawn(move || {
-        translation_worker(app2, rx, stop_thread, model_root2, hub);
-    }) {
-        *manager.translate_worker.lock().unwrap() = Some(stop_worker);
-        *manager.translate_tx.lock().unwrap() = Some(tx);
-        tracing::info!("翻译队列 worker 已启动");
-    }
+/// 队列任务快照（UI 展示/取消用）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueItemInfo {
+    pub id: String,
+    pub session_id: String,
+    pub source_name: String,
+    pub raw_preview: String,
 }
 
-/// 翻译 worker：串行消费队列（LLM 一次一句），空闲时保活内置引擎
-fn translation_worker(
+/// 翻译 worker：常驻串行消费队列（独立于转写生命周期）。
+/// 转写停止后队列中剩余任务继续翻译；翻译禁用时挂起不消费；UI 可取消/清空。
+pub(crate) fn translation_worker(
     app: AppHandle,
-    rx: mpsc::Receiver<TranslateJob>,
-    stop: Arc<AtomicBool>,
-    model_root: PathBuf,
+    queue: Arc<Mutex<std::collections::VecDeque<TranslateJob>>>,
+    model_root_getter: impl Fn() -> Option<PathBuf> + Send + 'static,
     hub: crate::translate::local_engine::EngineHub,
 ) {
     use crate::events::{TranslateStatePayload, EV_TRANSLATE_STATE};
@@ -216,76 +240,71 @@ fn translation_worker(
             detail,
         });
     };
-
-    // 启动即就绪：内置引擎在首句翻译时才加载（~8s，届时上报 loading→ok）
-    emit_state("ok", None);
+    emit_state("ok", None); // 通道就绪
 
     loop {
-        if stop.load(Ordering::SeqCst) {
-            break;
+        // 轮询队列（250ms；翻译延迟相对 LLM 推理可忽略，CPU 占用极低）
+        std::thread::sleep(Duration::from_millis(250));
+        let cfg = app.state::<SettingsState>().0.lock().unwrap().translation.clone();
+        if !cfg.enabled {
+            continue; // 翻译禁用 → 挂起不消费（队列保留，重新启用后继续）
         }
-        match rx.recv_timeout(Duration::from_secs(45)) {
-            Ok(job) => {
-                let cfg = app.state::<SettingsState>().0.lock().unwrap().translation.clone();
-                if !cfg.enabled {
-                    continue; // 运行中被关闭
-                }
-                if cfg.provider == "builtin" && !hub.is_loaded() {
-                    emit_state("loading", Some("首次使用需加载翻译模型（约 8s）".into()));
-                }
-                match tauri::async_runtime::block_on(crate::translate::translate_with_fallback(
-                    &job.payload.raw_text,
-                    job.payload.lang.as_deref(),
-                    &cfg,
-                    &mut state,
-                    &model_root,
-                    &hub,
-                )) {
-                    Ok(outcome) if outcome.provider != "none" => {
-                        emit_state("ok", Some(format!("来源: {}", outcome.provider)));
-                        let _ = app.emit(
-                            crate::events::EV_TRANSCRIPT_UPDATE,
-                            crate::events::TranscriptUpdatePayload {
-                                id: job.payload.id.clone(),
-                                translated_text: outcome.text.clone(),
-                                provider: outcome.provider.clone(),
-                            },
-                        );
-                        job.session.update_translation(
-                            &job.payload.id,
-                            &outcome.text,
-                            &outcome.provider,
-                        );
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        tracing::warn!("翻译失败: {e}");
-                        emit_state("error", Some(e.to_string()));
-                    }
-                }
+
+        // 取队首任务（跳过已被 UI 取消的会话残留）
+        let job = {
+            let mut q = queue.lock().unwrap();
+            q.pop_front()
+        };
+        let Some(job) = job else {
+            continue;
+        };
+
+        if cfg.provider == "builtin" && !hub.is_loaded() {
+            emit_state("loading", Some("首次使用需加载翻译模型（约 8s）".into()));
+        }
+
+        let Some(model_root) = model_root_getter() else {
+            emit_state("error", Some("模型目录不可用".into()));
+            continue;
+        };
+        let t0 = std::time::Instant::now();
+        match tauri::async_runtime::block_on(crate::translate::translate_with_fallback(
+            &job.payload.raw_text,
+            job.payload.lang.as_deref(),
+            &cfg,
+            &mut state,
+            &model_root,
+            &hub,
+        )) {
+            Ok(outcome) if outcome.provider != "none" => {
+                tracing::info!(
+                    "翻译完成（{}，{:.1}s）: {}",
+                    outcome.provider,
+                    t0.elapsed().as_secs_f32(),
+                    job.payload.id
+                );
+                emit_state("ok", Some(format!("来源: {}", outcome.provider)));
+                let _ = app.emit(
+                    crate::events::EV_TRANSCRIPT_UPDATE,
+                    crate::events::TranscriptUpdatePayload {
+                        id: job.payload.id.clone(),
+                        translated_text: outcome.text.clone(),
+                        provider: outcome.provider.clone(),
+                    },
+                );
+                job.session.update_translation(
+                    &job.payload.id,
+                    &outcome.text,
+                    &outcome.provider,
+                );
             }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                // 保活：本地 HTTP 服务 45s 无任务时发 1-token 请求防卸载
-                let cfg = app.state::<SettingsState>().0.lock().unwrap().translation.clone();
-                if cfg.enabled && cfg.provider == "local-http" && !state.local_offline {
-                    let system = crate::translate::prompts::render_local_system(&cfg.target_lang);
-                    let base = cfg.local.base_url.clone();
-                    let model = cfg.local.model.clone();
-                    let app2 = app.clone();
-                    let _ = tauri::async_runtime::spawn(async move {
-                        let _ = crate::translate::openai_compat::chat(
-                            &base, "", &model, 0.2, 1, 20, &system, "1", "keep-alive",
-                        )
-                        .await;
-                        let _ = app2; // 保持句柄
-                    });
-                }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::warn!("翻译失败: {e}");
+                emit_state("error", Some(e.to_string()));
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
-    // worker 退出不清空状态：下次启动会重新上报；避免前端残留「待机」误导
-    tracing::info!("翻译队列 worker 退出");
 }
 
 fn emit_error(app: &AppHandle, source_id: Option<&str>, message: String) {
@@ -303,15 +322,14 @@ fn run_source(
     vad_params: VadParams,
     vad_model_path: PathBuf,
     session: Arc<SessionStore>,
-    translate_tx: Option<mpsc::Sender<TranslateJob>>,
+    translate_queue: Arc<Mutex<std::collections::VecDeque<TranslateJob>>>,
     stop: Arc<AtomicBool>,
     sources_map: Arc<Mutex<HashMap<String, SourceHandle>>>,
     source_id: String,
 ) {
     let (tx, rx) = mpsc::channel::<Vec<f32>>();
     // 双后端采集：cpal（麦克风/环回）或 WASAPI 环回（Windows，直出 16k mono）
-    let mut cpal_stream: Option<audio::capture::OpenedStream> = None;
-    let native_rate = match &source.device {
+    let (native_rate, cpal_stream) = match &source.device {
         audio::SourceDevice::Cpal(dev) => {
             let s = match audio::capture::build_input_stream(dev, tx, stop.clone()) {
                 Ok(s) => s,
@@ -324,9 +342,7 @@ fn run_source(
                 emit_error(&app, Some(&source.desc.id), e.to_string());
                 return;
             }
-            let rate = s.native_rate;
-            cpal_stream = Some(s);
-            rate
+            (s.native_rate, Some(s))
         }
         #[cfg(target_os = "windows")]
         audio::SourceDevice::WasapiLoopback { endpoint_id } => {
@@ -335,7 +351,7 @@ fn run_source(
                 tx,
                 stop.clone(),
             ) {
-                Ok((rate, _handle)) => rate, // 16k 直出，无需重采样
+                Ok((rate, _handle)) => (rate, None), // 16k 直出，无需重采样
                 Err(e) => {
                     emit_error(&app, Some(&source.desc.id), e.to_string());
                     return;
@@ -368,7 +384,7 @@ fn run_source(
                     );
                 }
                 for seg in segmenter.feed(&mono16k) {
-                    handle_segment(&app, &source.desc, &engine, &seg, &session, &translate_tx);
+                    handle_segment(&app, &source.desc, &engine, &seg, &session, &translate_queue);
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -377,7 +393,7 @@ fn run_source(
     }
 
     for seg in segmenter.flush() {
-        handle_segment(&app, &source.desc, &engine, &seg, &session, &translate_tx);
+        handle_segment(&app, &source.desc, &engine, &seg, &session, &translate_queue);
     }
     drop(cpal_stream); // cpal 采集流随线程退出释放（WASAPI 线程自持）
     // 运行表自清理（应用流消失导致的自然退出同样适用，便于该源可再次启动）
@@ -391,7 +407,7 @@ fn handle_segment(
     engine: &SenseVoiceEngine,
     seg: &crate::asr::vad::Segment,
     session: &Arc<SessionStore>,
-    translate_tx: &Option<mpsc::Sender<TranslateJob>>,
+    translate_queue: &Arc<Mutex<std::collections::VecDeque<TranslateJob>>>,
 ) {
     match engine.transcribe(&seg.samples) {
         Ok(cand) if !cand.text.is_empty() => {
@@ -435,12 +451,10 @@ fn handle_segment(
 
             // 异步入队：LLM/远程翻译完成后 transcript:update 回填
             if cfg.enabled && translated_text.is_none() {
-                if let Some(tx) = translate_tx {
-                    let _ = tx.send(TranslateJob {
-                        session: Arc::clone(session),
-                        payload,
-                    });
-                }
+                translate_queue.lock().unwrap().push_back(TranslateJob {
+                    session: Arc::clone(session),
+                    payload,
+                });
             }
         }
         Ok(_) => {} // 空句（如纯噪音）

@@ -3,7 +3,6 @@
 //! SRT 时间轴 = VAD 切句起止（start_ms/end_ms，媒体时间）；
 //! 双语导出：译文存在时作为第二行/第二列。
 
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, AppResult};

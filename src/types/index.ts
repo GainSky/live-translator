@@ -169,6 +169,14 @@ export interface ModelProgress {
   error?: string;
 }
 
+/** 翻译队列任务快照（Rust pipeline::QueueItemInfo） */
+export interface QueueItemInfo {
+  id: string;
+  sessionId: string;
+  sourceName: string;
+  rawPreview: string;
+}
+
 /** 当前会话信息（Rust store::SessionInfo） */
 export interface SessionInfo {
   sessionId: string;

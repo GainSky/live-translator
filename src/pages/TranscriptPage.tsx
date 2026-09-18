@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { MainFontControl } from "@/components/FontPopover";
-import { exportTranscripts, hideOverlay, setOverlayLock, showOverlay } from "@/lib/ipc";
+import {
+  exportTranscripts,
+  hideOverlay,
+  setOverlayLock,
+  showOverlay,
+  translateQueueCancel,
+  translateQueueClear,
+  translateQueueList,
+} from "@/lib/ipc";
 import { save } from "@tauri-apps/plugin-dialog";
+import type { QueueItemInfo } from "@/types";
 
 const TRANSLATE_LABEL: Record<string, string> = {
   loading: "内置引擎加载中…",
@@ -35,9 +44,22 @@ export function TranscriptPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [queueItems, setQueueItems] = useState<QueueItemInfo[]>([]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcripts.length]);
+
+  // 翻译队列面板打开时轮询刷新
+  useEffect(() => {
+    if (!queueOpen) return;
+    const t = setInterval(
+      () => translateQueueList().then(setQueueItems).catch(() => {}),
+      1000,
+    );
+    return () => clearInterval(t);
+  }, [queueOpen]);
 
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const onExport = async (fmt: "txt" | "md" | "srt" | "csv" | "json") => {
@@ -81,6 +103,22 @@ export function TranscriptPage() {
           </span>
         )}
         <MainFontControl />
+        <button
+          onClick={() => {
+            const next = !queueOpen;
+            setQueueOpen(next);
+            if (next) translateQueueList().then(setQueueItems).catch(() => {});
+          }}
+          className={
+            "rounded-md border px-4 py-2 text-[1.15rem] " +
+            (queueOpen
+              ? "border-primary/60 bg-primary/15 text-primary"
+              : "border-border hover:bg-accent")
+          }
+          title="查看/管理待翻译任务（独立于转写：转写停止后队列继续消化）"
+        >
+          翻译队列{queueItems.length > 0 ? `（${queueItems.length}）` : ""}
+        </button>
         <button
           onClick={() => {
             if (overlayVisible) {
@@ -144,6 +182,55 @@ export function TranscriptPage() {
           </button>
         </div>
       </div>
+
+      {queueOpen && (
+        <div className="mb-3 space-y-2 rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[1.15rem] font-medium">
+              待翻译任务（{queueItems.length}）——独立于转写运行，转写停止后继续消化
+            </span>
+            <button
+              onClick={() =>
+                translateQueueClear()
+                  .then(() => translateQueueList().then(setQueueItems))
+                  .catch((e) => setLastError(`清空失败: ${e}`))
+              }
+              disabled={queueItems.length === 0}
+              className="rounded-md border border-destructive px-3 py-1.5 text-[1rem] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              清空队列
+            </button>
+          </div>
+          {queueItems.length === 0 ? (
+            <p className="text-[1rem] text-muted-foreground">队列为空。</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {queueItems.map((q, i) => (
+                <li
+                  key={q.id}
+                  className="flex items-center gap-3 rounded-md bg-background px-3 py-2"
+                >
+                  <span className="w-6 text-muted-foreground">{i + 1}.</span>
+                  <span className="w-28 truncate text-[0.95rem] text-muted-foreground">
+                    {q.sourceName}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{q.rawPreview}</span>
+                  <button
+                    onClick={() =>
+                      translateQueueCancel(q.id)
+                        .then(() => translateQueueList().then(setQueueItems))
+                        .catch((e) => setLastError(`取消失败: ${e}`))
+                    }
+                    className="rounded border border-destructive/50 px-2 py-0.5 text-[0.9rem] text-destructive hover:bg-destructive/10"
+                  >
+                    取消
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {exportMsg && (
         <div className="mb-3 rounded-md border border-border bg-muted/50 px-3 py-2 text-[1.05rem] text-muted-foreground">

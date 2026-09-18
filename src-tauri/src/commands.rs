@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tauri::{AppHandle, Manager, State};
 use tauri::Emitter;
@@ -58,6 +58,23 @@ pub fn stop_pipeline(state: State<'_, PipelineManager>) -> AppResult<()> {
 #[tauri::command]
 pub fn current_session(state: State<'_, PipelineManager>) -> Option<crate::store::SessionInfo> {
     state.current_session()
+}
+
+#[tauri::command]
+pub fn translate_queue_list(
+    state: State<'_, PipelineManager>,
+) -> Vec<crate::pipeline::QueueItemInfo> {
+    state.queue_list()
+}
+
+#[tauri::command]
+pub fn translate_queue_cancel(state: State<'_, PipelineManager>, id: String) -> bool {
+    state.queue_cancel(&id)
+}
+
+#[tauri::command]
+pub fn translate_queue_clear(state: State<'_, PipelineManager>) -> usize {
+    state.queue_clear()
 }
 
 #[tauri::command]
