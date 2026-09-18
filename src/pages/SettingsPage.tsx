@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   downloadModel,
   onModelProgress,
@@ -40,6 +41,7 @@ export function SettingsPage() {
   // 模型管理
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [modelsDir, setModelsDir] = useState<string>("");
+  const [resolvedDir, setResolvedDir] = useState<string>("");
   const [dlProgress, setDlProgress] = useState<
     Record<string, { downloaded: number; total: number }>
   >({});
@@ -71,7 +73,10 @@ export function SettingsPage() {
 
   const refreshModels = () => {
     listModels()
-      .then(setModels)
+      .then((page) => {
+        setModels(page.models);
+        setResolvedDir(page.dir);
+      })
       .catch((e) => console.warn("模型清单载入失败:", e));
   };
 
@@ -394,6 +399,48 @@ export function SettingsPage() {
             刷新状态
           </button>
         </div>
+
+        {/* 模型目录：设置后立即生效并重扫（优先级最高，高于便携/AppData 兜底） */}
+        <div className="flex items-center gap-2 rounded-md border border-border bg-background p-3">
+          <span className="shrink-0 text-[1.05rem] text-muted-foreground">模型目录</span>
+          <input
+            value={draft.advanced.modelsDir ?? ""}
+            onChange={(e) => edit((d) => (d.advanced.modelsDir = e.target.value || null))}
+            placeholder="留空 = 自动解析（便携 exe 目录 → AppData）"
+            className="input flex-1"
+          />
+          <button
+            onClick={async () => {
+              const picked = await open({ directory: true });
+              if (picked) {
+                edit((d) => (d.advanced.modelsDir = picked));
+                // 目录变更立即保存并重扫（不等统一保存按钮）
+                const d2 = structuredClone(draft);
+                d2.advanced.modelsDir = picked;
+                await saveSettings(d2);
+                setDraft(d2);
+                refreshModels();
+              }
+            }}
+            className="shrink-0 rounded-md border border-border px-3 py-1.5 text-[0.95rem] hover:bg-accent"
+          >
+            浏览…
+          </button>
+          {draft.advanced.modelsDir && (
+            <button
+              onClick={() => edit((d) => (d.advanced.modelsDir = null))}
+              className="shrink-0 rounded-md border border-border px-3 py-1.5 text-[0.95rem] hover:bg-accent"
+              title="清除后回退自动解析（便携目录 → AppData）"
+            >
+              恢复默认
+            </button>
+          )}
+        </div>
+        <p className="text-[0.95rem] text-muted-foreground">
+          当前解析目录：<code className="text-foreground">{resolvedDir || "（载入中…）"}</code>
+          {draft.advanced.modelsDir && "（用户指定）"}
+          ——修改目录并保存后会自动重新扫描模型清单。
+        </p>
         {models.length === 0 && (
           <p className="text-[1.05rem] text-muted-foreground">
             未找到模型清单（models/manifest.json）。请确认模型目录正确，见 readme §10.2。

@@ -166,11 +166,13 @@ impl Default for FontPref {
 pub struct AdvancedSettings {
     /// 空闲 N 分钟后自动卸载模型（移植自参考实现 600s 策略，见 docs/porting-notes.md §4）
     pub idle_unload_minutes: u64,
+    /// 用户显式指定的模型目录（设置后最优先；空 = 自动解析）
+    pub models_dir: Option<String>,
 }
 
 impl Default for AdvancedSettings {
     fn default() -> Self {
-        Self { idle_unload_minutes: 10 }
+        Self { idle_unload_minutes: 10, models_dir: None }
     }
 }
 

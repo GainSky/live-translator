@@ -42,18 +42,33 @@ pub fn verify_sha256(path: &Path, expected_hex: &str) -> AppResult<bool> {
     Ok(actual.eq_ignore_ascii_case(expected_hex))
 }
 
-/// 解析模型根目录：环境变量覆盖 → 便携模式（exe 同目录 models/）→ 用户数据目录
+/// 解析模型根目录（优先级从高到低）：
+/// 1. 设置页显式指定的目录（advanced.modelsDir）
+/// 2. 环境变量 LIVE_TRANSLATOR_MODELS_DIR
+/// 3. 便携模式：exe 同目录 models/
+/// 4. 用户数据目录：~/.local/share/.../models（Linux）/ %APPDATA%\...\models（Windows）
 pub fn resolve_model_root(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
+    use tauri::Manager;
+    // 1) 用户显式设置（存在性校验：目录不存在则跳过走后续，UI 会提示不可用）
+    if let Some(dir) = app
+        .try_state::<crate::SettingsState>()
+        .and_then(|s| s.0.lock().unwrap().advanced.models_dir.clone())
+        .filter(|p| Path::new(p).is_dir())
+    {
+        return Ok(std::path::PathBuf::from(dir));
+    }
+    // 2) 环境变量
     if let Ok(p) = std::env::var("LIVE_TRANSLATOR_MODELS_DIR") {
         return Ok(std::path::PathBuf::from(p));
     }
+    // 3) 便携模式
     if let Ok(exe) = std::env::current_exe() {
         let portable = exe.parent().unwrap_or(exe.as_path()).join("models");
         if portable.is_dir() {
             return Ok(portable);
         }
     }
-    use tauri::Manager;
+    // 4) 用户数据目录
     Ok(app.path().app_data_dir()?.join("models"))
 }
 
@@ -71,8 +86,16 @@ pub struct ModelInfo {
     pub downloading: bool,
 }
 
+/// 模型管理页数据：解析后的目录 + 各模型状态
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelsPage {
+    pub dir: String,
+    pub models: Vec<ModelInfo>,
+}
+
 /// 列出清单模型及其磁盘状态
-pub fn list_models(models_dir: &Path) -> AppResult<Vec<ModelInfo>> {
+pub fn list_models(models_dir: &Path) -> AppResult<ModelsPage> {
     let entries = load_manifest(models_dir)?;
     let active = download::active_ids();
     let mut out = Vec::new();
@@ -95,7 +118,10 @@ pub fn list_models(models_dir: &Path) -> AppResult<Vec<ModelInfo>> {
             downloading: active.contains(&e.id),
         });
     }
-    Ok(out)
+    Ok(ModelsPage {
+        dir: models_dir.display().to_string(),
+        models: out,
+    })
 }
 
 /// 下载模型（后台线程执行，进度经 model:progress 事件上报）

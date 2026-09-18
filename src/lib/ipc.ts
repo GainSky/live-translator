@@ -8,6 +8,7 @@ import type {
   QueueItemInfo,
   ModelInfo,
   ModelProgress,
+  ModelsPage,
   TranslationConfig,
   EngineStatus,
   SessionInfo,
@@ -51,8 +52,12 @@ export function saveSettings(settings: Settings): Promise<void> {
   return invoke("save_settings", { settings });
 }
 
-export function listModels(): Promise<ModelInfo[]> {
+export function listModels(): Promise<ModelsPage> {
   return invoke("list_models");
+}
+
+export function resolveModelsDir(): Promise<string> {
+  return invoke("resolve_models_dir");
 }
 
 export function downloadModel(id: string): Promise<void> {

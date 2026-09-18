@@ -104,6 +104,8 @@ export interface Settings {
   advanced: {
     /** 空闲 N 分钟后自动卸载模型（移植自参考实现 600s 策略） */
     idleUnloadMinutes: number;
+    /** 用户显式指定的模型目录（空 = 自动解析） */
+    modelsDir: string | null;
   };
 }
 
@@ -145,8 +147,15 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   advanced: {
     idleUnloadMinutes: 10,
+    modelsDir: null,
   },
 };
+
+/** 模型管理页数据（Rust models::ModelsPage） */
+export interface ModelsPage {
+  dir: string;
+  models: ModelInfo[];
+}
 
 /** 模型状态（Rust models::ModelInfo） */
 export interface ModelInfo {

@@ -123,13 +123,14 @@ pub async fn test_translation(
 }
 
 #[tauri::command]
-pub fn list_models(
-    app: AppHandle,
-    state: State<'_, SettingsState>,
-) -> AppResult<Vec<crate::models::ModelInfo>> {
-    let _ = state;
+pub fn list_models(app: AppHandle) -> AppResult<crate::models::ModelsPage> {
     let dir = crate::models::resolve_model_root(&app)?;
     crate::models::list_models(&dir)
+}
+
+#[tauri::command]
+pub fn resolve_models_dir(app: AppHandle) -> AppResult<String> {
+    Ok(crate::models::resolve_model_root(&app)?.display().to_string())
 }
 
 #[tauri::command]
