@@ -7,10 +7,26 @@ cd "$(dirname "$0")"
 
 BIN="src-tauri/target/release/live-translator"
 
+# CUDA 检测（与 run-dev.sh 同规则）：nvcc 可用 → 启用 GPU 推理特性
+# Arch 的 cuda 包安装在 /opt/cuda 但不注入 PATH → 显式加入
+if [[ -x /opt/cuda/bin/nvcc && ":$PATH:" != *":/opt/cuda/bin:"* ]]; then
+  export PATH="/opt/cuda/bin:$PATH"
+fi
+CARGO_FEATURES=""
+if command -v nvcc >/dev/null 2>&1; then
+  export CUDA_PATH="${CUDA_PATH:-/opt/cuda}"
+  export CUDA_COMPUTE_CAP="${CUDA_COMPUTE_CAP:-$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d '.')}"
+  export CUDA_COMPUTE_CAP="${CUDA_COMPUTE_CAP:-86}"
+  CARGO_FEATURES="--features cuda"
+  echo "✅ CUDA 就绪（compute_cap=$CUDA_COMPUTE_CAP）"
+else
+  echo "ℹ️ 未检测到 nvcc → 翻译引擎使用 CPU"
+fi
+
 if [[ "${1:-}" == "--build" || ! -x "$BIN" ]]; then
-  echo "🔨 构建 release 版本（首次约需几分钟）..."
+  echo "🔨 构建 release 版本（首次约需几分钟；CUDA 构建更久）..."
   export LIVE_TRANSLATOR_MODELS_DIR="$(pwd)/src-tauri/models"
-  pnpm tauri build
+  pnpm tauri build -- $CARGO_FEATURES
 fi
 
 if [[ ! -x "$BIN" ]]; then
@@ -27,5 +43,5 @@ export LIVE_TRANSLATOR_MODELS_DIR="$(pwd)/src-tauri/models"
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 # export WEBKIT_DISABLE_COMPOSITING_MODE=1   # 仍异常时再启用
 
-echo "🚀 启动 LiveTranslator（release）..."
+echo "🚀 启动 LiveTranslator（release，CUDA=$([[ -n "$CARGO_FEATURES" ]] && echo on || echo off))..."
 exec "$BIN"

@@ -22,6 +22,10 @@ command -v pnpm >/dev/null || { echo "❌ 未安装 pnpm"; exit 1; }
 
 # CUDA 检测：有 nvcc 则启用内置翻译引擎的 GPU 推理（任意 CUDA 显卡，自动回退 CPU）
 # bindgen_cuda 构建期需要 GPU 算力值：优先 nvidia-smi 查询，回退 86（覆盖 RTX 30/40 系）
+# Arch 的 cuda 包安装在 /opt/cuda 但不注入 PATH → 显式加入（存在才加，不覆盖用户配置）
+if [[ -x /opt/cuda/bin/nvcc && ":$PATH:" != *":/opt/cuda/bin:"* ]]; then
+  export PATH="/opt/cuda/bin:$PATH"
+fi
 CARGO_ARGS=""
 if command -v nvcc >/dev/null 2>&1; then
   export CUDA_PATH="${CUDA_PATH:-/opt/cuda}"
