@@ -53,9 +53,14 @@ export function FontPopover(props: {
       family: family.trim() || "system-ui",
       size: Math.min(72, Math.max(9, size)),
     };
-    props.onChange(f);
-    props.onApply?.(f);
+    // 先收起弹层再执行回调：任何回调异常都不会让弹层卡在打开状态
     setOpen(false);
+    try {
+      props.onChange(f);
+      props.onApply?.(f);
+    } catch (e) {
+      console.error("字体应用失败:", e);
+    }
   };
 
   return (
