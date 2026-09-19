@@ -110,7 +110,7 @@ export function OverlayApp() {
           className="overlay-fadeout truncate text-center leading-tight"
           style={{ fontFamily: font.family, fontSize: `${font.size}px` }}
         >
-          <OverlayText item={prev} mode={mode} />
+          <OverlayText item={prev} mode={mode} rawColor={settings.appearance.overlayRawColor} translatedColor={settings.appearance.overlayTranslatedColor} />
         </div>
       )}
 
@@ -120,7 +120,7 @@ export function OverlayApp() {
         style={{ fontFamily: font.family, fontSize: `${font.size}px` }}
       >
         {latest ? (
-          <OverlayText item={latest} mode={mode} />
+          <OverlayText item={latest} mode={mode} rawColor={settings.appearance.overlayRawColor} translatedColor={settings.appearance.overlayTranslatedColor} />
         ) : (
           <span className="opacity-40">
             等待转写内容…
@@ -161,14 +161,19 @@ export function OverlayApp() {
  *  - raw：单行原文
  *  - translated：单行译文（无译文回落原文）
  *  - both：两行（原文行 + 译文行）；无译文 → 单行原文 */
-function OverlayText(props: { item: TranscriptItem; mode: OverlayMode }) {
-  const { item, mode } = props;
+function OverlayText(props: {
+  item: TranscriptItem;
+  mode: OverlayMode;
+  rawColor: string;
+  translatedColor: string;
+}) {
+  const { item, mode, rawColor, translatedColor } = props;
   const hasT = !!item.translatedText;
   const shadow = { textShadow: "0 1px 4px rgb(0 0 0 / 0.85), 0 0 2px rgb(0 0 0 / 0.9)" };
 
   if (mode === "translated" && hasT) {
     return (
-      <span className="block truncate" style={shadow}>
+      <span className="block truncate" style={{ color: translatedColor, ...shadow }}>
         {item.translatedText}
       </span>
     );
@@ -176,12 +181,12 @@ function OverlayText(props: { item: TranscriptItem; mode: OverlayMode }) {
   if (mode === "both" && hasT) {
     return (
       <span className="block">
-        <span className="block truncate font-semibold" style={shadow}>
+        <span className="block truncate font-semibold" style={{ color: rawColor, ...shadow }}>
           {item.rawText}
         </span>
         <span
-          className="mt-0.5 block truncate text-[0.75em] text-amber-200/90"
-          style={shadow}
+          className="mt-0.5 block truncate text-[0.75em]"
+          style={{ color: translatedColor, ...shadow }}
         >
           {item.translatedText}
         </span>
@@ -189,7 +194,7 @@ function OverlayText(props: { item: TranscriptItem; mode: OverlayMode }) {
     );
   }
   return (
-    <span className="block truncate font-semibold" style={shadow}>
+    <span className="block truncate font-semibold" style={{ color: rawColor, ...shadow }}>
       {item.rawText}
     </span>
   );

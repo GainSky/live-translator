@@ -511,7 +511,7 @@ export function SettingsPage() {
             <option value="translated">仅译文</option>
           </select>
         </Field>
-        <Field label="悬浮窗字体">
+        <Field label="悬浮窗字体（字号在弹层内滑杆调整）">
           <FontPopover
             label="编辑"
             value={draft.appearance.overlayFont}
@@ -520,6 +520,36 @@ export function SettingsPage() {
           <span className="text-[1.05rem] text-muted-foreground">
             {draft.appearance.overlayFont.family} · {draft.appearance.overlayFont.size}px
           </span>
+        </Field>
+        <Field label="原文颜色">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={draft.appearance.overlayRawColor}
+              onChange={(e) => edit((d) => (d.appearance.overlayRawColor = e.target.value))}
+              className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent"
+            />
+            <input
+              value={draft.appearance.overlayRawColor}
+              onChange={(e) => edit((d) => (d.appearance.overlayRawColor = e.target.value))}
+              className="input w-28"
+            />
+          </div>
+        </Field>
+        <Field label="译文颜色">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={draft.appearance.overlayTranslatedColor}
+              onChange={(e) => edit((d) => (d.appearance.overlayTranslatedColor = e.target.value))}
+              className="h-9 w-12 cursor-pointer rounded border border-border bg-transparent"
+            />
+            <input
+              value={draft.appearance.overlayTranslatedColor}
+              onChange={(e) => edit((d) => (d.appearance.overlayTranslatedColor = e.target.value))}
+              className="input w-28"
+            />
+          </div>
         </Field>
         <p className="text-[1.05rem] text-muted-foreground">
           打开方式：转写页工具栏「悬浮窗」按钮；窗体可直接拖动，底部控制条可切换模式与锁定

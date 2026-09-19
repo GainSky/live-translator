@@ -124,6 +124,10 @@ pub struct AppearanceSettings {
     pub overlay_font: FontPref,
     /// "both" | "raw" | "translated"
     pub overlay_mode: String,
+    /// 原文文字颜色（十六进制，如 #ffffff）
+    pub overlay_raw_color: String,
+    /// 译文文字颜色（十六进制，如 #ffd166）
+    pub overlay_translated_color: String,
     /// 悬浮窗位置（物理像素），拖动后记忆、启动恢复
     pub overlay_pos: Option<OverlayPos>,
 }
@@ -142,6 +146,8 @@ impl Default for AppearanceSettings {
             main_font: Default::default(),
             overlay_font: FontPref { family: "system-ui".into(), size: 26 },
             overlay_mode: "both".into(),
+            overlay_raw_color: "#ffffff".into(),
+            overlay_translated_color: "#ffd166".into(),
             overlay_pos: None,
         }
     }

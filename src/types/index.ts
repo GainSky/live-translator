@@ -100,6 +100,10 @@ export interface Settings {
     mainFont: FontPref;
     overlayFont: FontPref;
     overlayMode: OverlayMode;
+    /** 原文文字颜色（十六进制） */
+    overlayRawColor: string;
+    /** 译文文字颜色（十六进制） */
+    overlayTranslatedColor: string;
   };
   advanced: {
     /** 空闲 N 分钟后自动卸载模型（移植自参考实现 600s 策略） */
@@ -141,9 +145,11 @@ export const DEFAULT_SETTINGS: Settings = {
   appearance: {
     theme: "system",
     showTranslated: true,
-    mainFont: { family: "system-ui", size: 15 },
-    overlayFont: { family: "system-ui", size: 22 },
+    mainFont: { family: "system-ui", size: 18 },
+    overlayFont: { family: "system-ui", size: 26 },
     overlayMode: "both",
+    overlayRawColor: "#ffffff",
+    overlayTranslatedColor: "#ffd166",
   },
   advanced: {
     idleUnloadMinutes: 10,
