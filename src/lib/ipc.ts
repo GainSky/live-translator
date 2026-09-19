@@ -111,7 +111,14 @@ export interface OverlayDisplayPatch {
 
 /** 字段级更新悬浮窗显示偏好（只覆盖提供的字段） */
 export function setOverlayDisplay(patch: OverlayDisplayPatch): Promise<void> {
-  return invoke("set_overlay_display", { patch });
+  // 后端命令参数为平铺的 Option 字段；缺省/null → 不更新该字段
+  return invoke("set_overlay_display", {
+    mode: patch.mode ?? null,
+    rawColor: patch.rawColor ?? null,
+    translatedColor: patch.translatedColor ?? null,
+    rawFont: patch.rawFont ?? null,
+    translatedFont: patch.translatedFont ?? null,
+  });
 }
 
 export function setOverlayLock(locked: boolean): Promise<void> {
