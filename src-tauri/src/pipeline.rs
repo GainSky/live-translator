@@ -119,7 +119,12 @@ impl PipelineManager {
                 })
                 .map_err(|e| AppError::Message(format!("采集线程启动失败: {e}")))?;
             sources.insert(id, SourceHandle { stop: stop_flag });
-            tracing::info!("流水线已启动: {}", source_name);
+            tracing::info!(
+            "流水线已启动: {} | 目标语言={} | 翻译={}",
+            source_name,
+            settings.translation.target_lang,
+            if settings.translation.enabled { "开" } else { "关" }
+        );
         }
         Ok(())
     }
