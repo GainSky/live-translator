@@ -6,6 +6,10 @@ use std::path::Path;
 
 use crate::error::{AppError, AppResult};
 
+/// 内嵌默认清单（编译期打包）：用户模型目录缺 manifest.json 时兜底，
+/// 保证清单与代码引用的文件名永远一致（本次 tokenizer 文件名不匹配的教训）
+const DEFAULT_MANIFEST: &str = include_str!("../../models/manifest.json");
+
 /// 模型清单条目（readme §5.5：首启下载 + 断点续传 + sha256 校验 + 便携模式）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,10 +27,13 @@ pub struct ModelEntry {
 
 pub fn load_manifest(models_dir: &Path) -> AppResult<Vec<ModelEntry>> {
     let path = models_dir.join("manifest.json");
-    let raw = std::fs::read_to_string(&path).map_err(|e| {
-        AppError::Message(format!("读取模型清单失败（{}）: {e}", path.display()))
-    })?;
-    Ok(serde_json::from_str(&raw)?)
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => Ok(serde_json::from_str(&raw)?),
+        Err(_) => {
+            tracing::info!("模型清单文件不存在（{}），使用内置默认清单", path.display());
+            Ok(serde_json::from_str(DEFAULT_MANIFEST)?)
+        }
+    }
 }
 
 /// sha256 校验（首启下载完成后执行）
@@ -133,4 +140,26 @@ pub fn download_in_background(app: tauri::AppHandle, models_dir: &Path, id: &str
         .ok_or_else(|| AppError::Message(format!("清单中不存在模型: {id}")))?;
     download::download_in_background(app, models_dir.to_path_buf(), entry);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_consistent_with_code_constants() {
+        let entries: Vec<ModelEntry> = serde_json::from_str(DEFAULT_MANIFEST).unwrap();
+        // tokenizer 文件名必须与引擎常量一致（本次修复的教训）
+        let tok = entries
+            .iter()
+            .find(|e| e.id == "qwen2.5-tokenizer")
+            .expect("清单缺少 tokenizer 条目");
+        assert_eq!(tok.dest, crate::translate::local_engine::DEFAULT_TOKENIZER);
+        // SenseVoice 目录名必须与引擎常量一致
+        let sv = entries
+            .iter()
+            .find(|e| e.id == "sense-voice-int8")
+            .expect("清单缺少 sense-voice 条目");
+        assert_eq!(sv.dest, format!("{}/", crate::asr::sense_voice::MODEL_DIR_NAME));
+    }
 }

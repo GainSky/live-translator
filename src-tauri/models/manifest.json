@@ -53,7 +53,7 @@
     ],
     "sha256": "",
     "sizeBytes": 11493827,
-    "dest": "qwen2.5-tokenizer.json",
+    "dest": "qwen2.5-3b-tokenizer.json",
     "required": false
   }
 ]
