@@ -63,6 +63,8 @@ export interface VadParams {
   minSilenceMs: number;
   minSpeechMs: number;
   maxSpeechMs: number;
+  /** 句首预缓冲（毫秒）：VAD 确认语音前的音频并入句首，防起始吞字 */
+  prePadMs: number;
 }
 
 export interface TranslationConfig {
@@ -124,6 +126,7 @@ export const DEFAULT_SETTINGS: Settings = {
       minSilenceMs: 500,
       minSpeechMs: 150,
       maxSpeechMs: 10000,
+      prePadMs: 400,
     },
   },
   translation: {

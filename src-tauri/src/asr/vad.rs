@@ -16,6 +16,8 @@ pub struct VadParams {
     pub min_silence_ms: u64,
     pub min_speech_ms: u64,
     pub max_speech_ms: u64,
+    /// 句首预缓冲（毫秒）：VAD 确认语音前的音频并入句首，防止起始吞字
+    pub pre_pad_ms: u64,
 }
 
 impl Default for VadParams {
@@ -25,6 +27,7 @@ impl Default for VadParams {
             min_silence_ms: 500,
             min_speech_ms: 150,
             max_speech_ms: 10_000,
+            pre_pad_ms: 400,
         }
     }
 }
@@ -42,8 +45,14 @@ pub struct Segmenter {
     vad: VoiceActivityDetector,
     pending: Vec<f32>,
     speech_started: bool,
-    speech_start_sample: u64,
     total_samples: u64,
+    /// 滚动预缓冲：最近 pre_pad_ms 的音频（按窗口边界维护）
+    pre_roll: Vec<f32>,
+    pre_roll_cap: usize,
+    /// 上一窗口的检测状态（false→true 跳变 = 新语段起始）
+    prev_detected: bool,
+    /// 起始瞬间快照的预缓冲（emit 时拼到句首）
+    speech_pre_roll: Vec<f32>,
 }
 
 impl Segmenter {
@@ -71,8 +80,11 @@ impl Segmenter {
             vad,
             pending: Vec::new(),
             speech_started: false,
-            speech_start_sample: 0,
             total_samples: 0,
+            pre_roll: Vec::new(),
+            pre_roll_cap: params.pre_pad_ms as usize * SAMPLE_RATE as usize / 1000,
+            prev_detected: false,
+            speech_pre_roll: Vec::new(),
         })
     }
 
@@ -86,9 +98,20 @@ impl Segmenter {
             self.total_samples += WINDOW_SIZE as u64;
             self.vad.accept_waveform(&window);
 
-            if !self.speech_started && self.vad.detected() {
+            // 语音起始（静音→语音跳变）：快照此前的预缓冲并入句首。
+            // Silero 需数个窗口确认语音，确认期音频在段外——不补就吞起始字。
+            let detected = self.vad.detected();
+            if detected && !self.prev_detected {
                 self.speech_started = true;
-                self.speech_start_sample = self.total_samples;
+                self.speech_pre_roll = self.pre_roll.clone();
+            }
+            self.prev_detected = detected;
+
+            // 本窗口进入滚动缓冲（快照在先，起始窗口不重复）
+            self.pre_roll.extend_from_slice(&window);
+            if self.pre_roll.len() > self.pre_roll_cap {
+                let drop = self.pre_roll.len() - self.pre_roll_cap;
+                self.pre_roll.drain(..drop);
             }
             out.extend(self.drain_finished());
         }
@@ -100,6 +123,9 @@ impl Segmenter {
         self.vad.flush();
         let out = self.drain_finished();
         self.pending.clear();
+        self.pre_roll.clear();
+        self.speech_pre_roll.clear();
+        self.prev_detected = false;
         out
     }
 
@@ -109,12 +135,14 @@ impl Segmenter {
             let samples = seg.samples().to_vec();
             self.vad.pop();
             let end = self.total_samples;
-            let len = samples.len() as u64;
-            let start = self.speech_start_sample.min(end.saturating_sub(len));
+            // 句首拼入预缓冲（起始前的音频），时间轴同步回退
+            let mut full = std::mem::take(&mut self.speech_pre_roll);
+            full.extend_from_slice(&samples);
+            let start = end.saturating_sub(full.len() as u64);
             out.push(Segment {
                 start_ms: start * 1000 / SAMPLE_RATE as u64,
                 end_ms: end * 1000 / SAMPLE_RATE as u64,
-                samples,
+                samples: full,
             });
             self.speech_started = false;
         }
