@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install CUDA toolkit
-        uses: Jimver/cuda-toolkit@v2
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: "12.8.1"
           method: "local"
@@ -39,7 +39,7 @@ jobs:
       - name: Build (Windows x64, CUDA)
         run: pnpm tauri build --no-bundle -- --no-default-features --features cuda
         env:
-          CUDA_PATH: ${{ env.CUDA_PATH }}
+          # CUDA_PATH 由 cuda-toolkit action 注入并跨步骤生效，勿在此覆盖
           CUDA_COMPUTE_CAP: "86"
 
       - uses: actions/upload-artifact@v4
