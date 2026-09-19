@@ -368,6 +368,7 @@ live_translator/
 | 2026-09-12 | OpenCC 误判修复 | **日文/韩文不再走简繁快路径** | 日文含汉字（CJK 区段）被 contains_cjk 误判为中文 → OpenCC 原样通过 → 译文=原文且远程翻译不触发；已加假名/谚文排除 + 单元回归测试（14/14）；默认目标语言改为简体中文（繁体选项下移），生效配置同步更新 |
 | 2026-09-12 | M3 翻译管线 | **✅ 完成**（串行队列/三态降级/OpenCC/译文回填/状态事件/三 Provider 设置） | 快路径：中文↔简繁 = OpenCC 即时（0 LLM 消耗）；LLM/远程走异步队列 + `transcript:update` 回填；降级 = 本地连接失败跳过会话/超时本句跳过/远程 3 连败冷却 30s/Google 兜底可开关；测试 10/10 |
 | 2026-09-12 | Windows CI 修复 | icon.ico 补齐（tauri-build 资源必需）/ .gitignore 误吞 src\/models / wasapi 0.24 Windows 类型适配（WaveFormat usize、probe 线程所有权） | CI 可编译性按轮次验证 |
+| 2026-09-18 | M6 正式版 1.0 | **✅ 完成** | 版本 1.0.0；NSIS 中文安装器（currentUser）/ AppImage / deb 打包配置；图标尺寸集补全；release.yml（推送 v* tag 触发：Linux AppImage+deb / Windows NSIS CPU 版 / Windows NSIS CUDA 版 → 草稿 Release） | 三平台 |
 | 2026-09-12 | 悬浮窗字体拆分 | **原文行/译文行独立字体**（并排设置）+ 仅译文模式不再短暂显示原文（不可见占位保持行高） | 悬浮窗 v2.3 |
 | 2026-09-12 | M5 导出+模型管理 | **✅ 完成** | 五格式导出（TXT/MD/SRT双语/CSV/JSON，对话框选路径，SRT 时间轴=VAD 起止）；模型管理页（清单状态/一键下载/进度条/断点续传/sha256 校验/tar.bz2 自动解压，进度经 model:progress 事件）；空闲看门狗（N 分钟无活动自动卸载 ASR+内置引擎，分钟数设置页可调）；设置持久化此前已完成 |
 | 2026-09-12 | M4 悬浮窗 | **✅ 完成**（v2） | 智能显示：有译文按模式（双语/仅原文/仅译文），无译文自动回落单行原文；悬浮窗本体可切换模式 + 锁定（点击穿透，主窗解锁）；拖动 + 位置记忆（Moved 事件 → 设置内存态，退出落盘）；启动恢复位置；字体独立（overlayFont）；上一句渐隐；主窗转写页工具栏「悬浮窗开关/锁定」按钮 |
@@ -438,6 +439,18 @@ pnpm install --store-dir "$PWD/.pnpm-store"                # pnpm 全局 store
 | 停止转写时日志出现 `音频流错误: Device disconnected` | 流销毁时 cpal 错误回调被触发，属正常关闭时序的噪声日志 | 采集流构建时注入 stop 标志，置位后错误回调静默（真实的运行中错误仍会记录） |
 | `cargo run could not determine which binary to run` | 项目含 main + smoke 双二进制 | 已在 Cargo.toml 设 `default-run = "live-translator"` |
 | pnpm 报 `[ERR_SQLITE_ERROR] unable to open database file`（构建机沙箱） | 全局 store 在只读路径 | `.npmrc`/`pnpm-workspace.yaml` 已将 store 重定向至工作区 `.pnpm-store/` |
+
+### 10.4b 1.0 正式版发布说明
+
+- 版本 1.0.0：M1 核心流水线 / M2 主窗 UI / M3 翻译 / M4 悬浮窗 / M5 导出+模型管理 / CUDA 接入 / M6 打包 全部完成
+- 产物（推送 `v1.0.0` tag 自动构建，Actions 产生草稿 Release）：
+  - `LiveTranslator_1.0.0_x64-setup.exe`（Windows NSIS 中文安装器，CPU 版）
+  - `LiveTranslator_1.0.0_x64-cuda-setup.exe`（Windows CUDA 版，需目标机装有 CUDA 13 运行时，驱动 ≥ 580）
+  - `LiveTranslator_1.0.0_amd64.AppImage` / `live-translator_1.0.0_amd64.deb`（Linux，ALSA 音频兜底；PipeWire 完整版本地自建）
+- 安装后首次使用：把 `models/` 目录放到安装目录旁（或设置页指定模型目录），
+  模型管理页确认 5 个条目就绪
+- 标识符仍为 `dev.live-translator.app`（保持既有用户配置/模型目录兼容，
+  更换留待 1.1 并提供迁移）
 
 ### 10.5 CUDA 接入（内置翻译引擎 GPU 推理）
 
