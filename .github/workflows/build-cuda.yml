@@ -19,6 +19,11 @@ jobs:
           cuda: "12.8.1"
           method: "local"
 
+      # nvcc 编译 .cu 需要 MSVC 宿主编译器（cl.exe）；runner 装了 VS Build Tools
+      # 但不在 PATH——此 action 运行 vcvars64 导出 PATH/INCLUDE/LIB 供后续步骤使用
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
