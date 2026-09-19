@@ -36,8 +36,8 @@
     "id": "qwen2.5-3b-instruct-q4",
     "name": "Qwen2.5-3B-Instruct Q4（内置离线翻译引擎）",
     "urls": [
-      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4-k-m.gguf",
-      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4-k-m.gguf"
+      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf?download=true",
+      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf"
     ],
     "sha256": "",
     "sizeBytes": 1925594528,
@@ -48,8 +48,8 @@
     "id": "qwen2.5-tokenizer",
     "name": "Qwen2.5 tokenizer（内置翻译引擎用）",
     "urls": [
-      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/tokenizer.json",
-      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/tokenizer.json"
+      "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/resolve/main/tokenizer.json?download=true",
+      "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct/resolve/main/tokenizer.json"
     ],
     "sha256": "",
     "sizeBytes": 11493827,
