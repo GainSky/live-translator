@@ -9,16 +9,18 @@ on:
 
 jobs:
   build-windows-cuda:
-    # 钉在 windows-2022：其 MSVC 为 VS2022（CUDA 12.8 host_config.h 支持 2017-2022）；
+    # 钉在 windows-2022：VS2022（cl 19.4x）与 CUDA 13.2 兼容；
     # windows-latest 已带 VS2026（cl 19.50+），nvcc 会报 unsupported MSVC version
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
+      # CUDA 13：与常见目标机安装的 CUDA 13 运行时匹配（链接 cublas64_13 等 DLL）。
+      # candle 0.9.2/cudarc 已在 CUDA 13.3 下验证可编译可运行
       - name: Install CUDA toolkit
         uses: Jimver/cuda-toolkit@v0.2.36
         with:
-          cuda: "12.8.1"
+          cuda: "13.2.0"
           method: "local"
 
       # nvcc 编译 .cu 需要 MSVC 宿主编译器（cl.exe）；runner 装了 VS Build Tools
