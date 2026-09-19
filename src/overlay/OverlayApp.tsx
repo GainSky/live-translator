@@ -125,14 +125,14 @@ export function OverlayApp() {
         <div
           key={prev.id}
           onAnimationEnd={() => setPrev(null)}
-          className="overlay-fadeout truncate text-center leading-tight"
+          className="overlay-fadeout text-center leading-tight"
         >
           <OverlayText item={prev} mode={mode} rawStyle={rawStyle} trStyle={trStyle} />
         </div>
       )}
 
       {/* 最新句 */}
-      <div className="truncate text-center leading-tight">
+      <div className="text-center leading-tight">
         {latest ? (
           <OverlayText item={latest} mode={mode} rawStyle={rawStyle} trStyle={trStyle} />
         ) : (
@@ -171,8 +171,8 @@ export function OverlayApp() {
   );
 }
 
-/** 按显示模式产出内容（每行由外层 truncate 保证单行）：
- *  - raw：单行原文
+/** 按显示模式产出内容（长句自动换行，窗口随内容自动增高）：
+ *  - raw：原文（可多行）
  *  - translated：译文未到时**不显示原文**（不可见占位保持行高，避免短暂重叠），
  *    译文到达后显示
  *  - both：原文行 + 译文行（译文未到时先显示原文行，回填后原地替换） */
@@ -188,10 +188,10 @@ function OverlayText(props: {
   if (mode === "translated") {
     if (!hasT) {
       // 不可见占位：保持行高，避免窗口高度跳动
-      return <span className="block truncate opacity-0">{item.rawText}</span>;
+      return <span className="block break-words opacity-0">{item.rawText}</span>;
     }
     return (
-      <span className="block truncate" style={trStyle}>
+      <span className="block break-words" style={trStyle}>
         {item.translatedText}
       </span>
     );
@@ -199,11 +199,11 @@ function OverlayText(props: {
   if (mode === "both") {
     return (
       <span className="block">
-        <span className="block truncate font-semibold" style={rawStyle}>
+        <span className="block break-words font-semibold" style={rawStyle}>
           {item.rawText}
         </span>
         {hasT && (
-          <span className="mt-0.5 block truncate" style={trStyle}>
+          <span className="mt-0.5 block break-words" style={trStyle}>
             {item.translatedText}
           </span>
         )}
@@ -211,7 +211,7 @@ function OverlayText(props: {
     );
   }
   return (
-    <span className="block truncate font-semibold" style={rawStyle}>
+    <span className="block break-words font-semibold" style={rawStyle}>
       {item.rawText}
     </span>
   );
