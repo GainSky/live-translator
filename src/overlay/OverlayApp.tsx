@@ -80,13 +80,9 @@ export function OverlayApp() {
 
   const setMode = (m: OverlayMode) => {
     // 专用命令：只更新悬浮窗显示偏好，不触碰其他设置（避免跨窗口整份覆盖）
-    setOverlayDisplay(
-      m,
-      settings.appearance.overlayRawColor,
-      settings.appearance.overlayTranslatedColor,
-      settings.appearance.overlayRawFont,
-      settings.appearance.overlayTranslatedFont,
-    ).catch((e) => console.warn("模式保存失败:", e));
+    setOverlayDisplay({ mode: m }).catch((e) =>
+      console.warn("模式保存失败:", e),
+    );
     setSettings({
       ...settings,
       appearance: { ...settings.appearance, overlayMode: m },

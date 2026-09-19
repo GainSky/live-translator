@@ -40,6 +40,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   // 模型管理
+  const [openFont, setOpenFont] = useState<"raw" | "translated" | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [modelsDir, setModelsDir] = useState<string>("");
   const [resolvedDir, setResolvedDir] = useState<string>("");
@@ -517,18 +518,21 @@ export function SettingsPage() {
             <FontPopover
               label="编辑"
               value={draft.appearance.overlayRawFont}
-              onChange={(f) => edit((d) => (d.appearance.overlayRawFont = f))}
+              open={openFont === "raw"}
+              onOpenChange={(o) => setOpenFont(o ? "raw" : null)}
+              onChange={(f) => {
+                // 静默更新草稿（不标 dirty），「保存并应用」时字段级持久化
+                const d2 = structuredClone(draft);
+                d2.appearance.overlayRawFont = f;
+                setDraft(d2);
+              }}
               onApply={(f) => {
                 const d2 = structuredClone(draft);
                 d2.appearance.overlayRawFont = f;
                 setDraft(d2);
-                setOverlayDisplay(
-                  d2.appearance.overlayMode,
-                  d2.appearance.overlayRawColor,
-                  d2.appearance.overlayTranslatedColor,
-                  d2.appearance.overlayRawFont,
-                  d2.appearance.overlayTranslatedFont,
-                ).catch((e: unknown) => setModelsDir(`字体应用失败: ${e}`));
+                setOverlayDisplay({ rawFont: f }).catch(
+                  (e: unknown) => setModelsDir(`字体应用失败: ${e}`),
+                );
               }}
             />
             <span className="text-[1.05rem] text-muted-foreground">
@@ -539,18 +543,20 @@ export function SettingsPage() {
             <FontPopover
               label="编辑"
               value={draft.appearance.overlayTranslatedFont}
-              onChange={(f) => edit((d) => (d.appearance.overlayTranslatedFont = f))}
+              open={openFont === "translated"}
+              onOpenChange={(o) => setOpenFont(o ? "translated" : null)}
+              onChange={(f) => {
+                const d2 = structuredClone(draft);
+                d2.appearance.overlayTranslatedFont = f;
+                setDraft(d2);
+              }}
               onApply={(f) => {
                 const d2 = structuredClone(draft);
                 d2.appearance.overlayTranslatedFont = f;
                 setDraft(d2);
-                setOverlayDisplay(
-                  d2.appearance.overlayMode,
-                  d2.appearance.overlayRawColor,
-                  d2.appearance.overlayTranslatedColor,
-                  d2.appearance.overlayRawFont,
-                  d2.appearance.overlayTranslatedFont,
-                ).catch((e: unknown) => setModelsDir(`字体应用失败: ${e}`));
+                setOverlayDisplay({ translatedFont: f }).catch(
+                  (e: unknown) => setModelsDir(`字体应用失败: ${e}`),
+                );
               }}
             />
             <span className="text-[1.05rem] text-muted-foreground">

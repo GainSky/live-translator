@@ -106,27 +106,40 @@ pub fn save_settings(
 pub fn set_overlay_display(
     app: AppHandle,
     state: State<'_, SettingsState>,
-    mode: String,
-    raw_color: String,
-    translated_color: String,
-    raw_font: crate::settings::FontPref,
-    translated_font: crate::settings::FontPref,
+    mode: Option<String>,
+    raw_color: Option<String>,
+    translated_color: Option<String>,
+    raw_font: Option<crate::settings::FontPref>,
+    translated_font: Option<crate::settings::FontPref>,
 ) -> AppResult<()> {
-    match mode.as_str() {
-        "both" | "raw" | "translated" => {}
-        other => return Err(AppError::Message(format!("未知显示模式: {other}"))),
+    if let Some(m) = &mode {
+        if !matches!(m.as_str(), "both" | "raw" | "translated") {
+            return Err(AppError::Message(format!("未知显示模式: {m}")));
+        }
     }
     let mut cfg = state.0.lock().unwrap().clone();
-    cfg.appearance.overlay_mode = mode.clone();
-    cfg.appearance.overlay_raw_color = raw_color;
-    cfg.appearance.overlay_translated_color = translated_color;
-    cfg.appearance.overlay_raw_font = raw_font;
-    cfg.appearance.overlay_translated_font = translated_font;
+    // 字段级更新：只覆盖提供的字段（修复：应用译文字体时把未应用的
+    // 原文字体改动一并重置回保存态的问题）
+    if let Some(m) = mode {
+        cfg.appearance.overlay_mode = m;
+    }
+    if let Some(c) = raw_color {
+        cfg.appearance.overlay_raw_color = c;
+    }
+    if let Some(c) = translated_color {
+        cfg.appearance.overlay_translated_color = c;
+    }
+    if let Some(f) = raw_font {
+        cfg.appearance.overlay_raw_font = f;
+    }
+    if let Some(f) = translated_font {
+        cfg.appearance.overlay_translated_font = f;
+    }
     let dir = crate::settings::settings_dir(&app)?;
     crate::settings::save(&dir, &cfg)?;
     *state.0.lock().unwrap() = cfg.clone();
     let _ = app.emit(EV_SETTINGS_CHANGED, SettingsChangedPayload { settings: cfg });
-    tracing::info!("悬浮窗显示偏好已更新: {mode}");
+    tracing::info!("悬浮窗显示偏好已更新");
     Ok(())
 }
 

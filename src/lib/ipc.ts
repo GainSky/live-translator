@@ -101,20 +101,17 @@ export function hideOverlay(): Promise<void> {
   return invoke("hide_overlay");
 }
 
-export function setOverlayDisplay(
-  mode: OverlayMode,
-  rawColor: string,
-  translatedColor: string,
-  rawFont: FontPref,
-  translatedFont: FontPref,
-): Promise<void> {
-  return invoke("set_overlay_display", {
-    mode,
-    rawColor,
-    translatedColor,
-    rawFont,
-    translatedFont,
-  });
+export interface OverlayDisplayPatch {
+  mode?: OverlayMode;
+  rawColor?: string;
+  translatedColor?: string;
+  rawFont?: FontPref;
+  translatedFont?: FontPref;
+}
+
+/** 字段级更新悬浮窗显示偏好（只覆盖提供的字段） */
+export function setOverlayDisplay(patch: OverlayDisplayPatch): Promise<void> {
+  return invoke("set_overlay_display", { patch });
 }
 
 export function setOverlayLock(locked: boolean): Promise<void> {
