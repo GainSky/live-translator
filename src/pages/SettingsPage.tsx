@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   downloadModel,
+  setOverlayDisplay,
   onModelProgress,
   getSettings,
   listModels,
@@ -517,6 +518,18 @@ export function SettingsPage() {
               label="编辑"
               value={draft.appearance.overlayRawFont}
               onChange={(f) => edit((d) => (d.appearance.overlayRawFont = f))}
+              onApply={(f) => {
+                const d2 = structuredClone(draft);
+                d2.appearance.overlayRawFont = f;
+                setDraft(d2);
+                setOverlayDisplay(
+                  d2.appearance.overlayMode,
+                  d2.appearance.overlayRawColor,
+                  d2.appearance.overlayTranslatedColor,
+                  d2.appearance.overlayRawFont,
+                  d2.appearance.overlayTranslatedFont,
+                ).catch((e: unknown) => setModelsDir(`字体应用失败: ${e}`));
+              }}
             />
             <span className="text-[1.05rem] text-muted-foreground">
               {draft.appearance.overlayRawFont.family} · {draft.appearance.overlayRawFont.size}px
@@ -527,6 +540,18 @@ export function SettingsPage() {
               label="编辑"
               value={draft.appearance.overlayTranslatedFont}
               onChange={(f) => edit((d) => (d.appearance.overlayTranslatedFont = f))}
+              onApply={(f) => {
+                const d2 = structuredClone(draft);
+                d2.appearance.overlayTranslatedFont = f;
+                setDraft(d2);
+                setOverlayDisplay(
+                  d2.appearance.overlayMode,
+                  d2.appearance.overlayRawColor,
+                  d2.appearance.overlayTranslatedColor,
+                  d2.appearance.overlayRawFont,
+                  d2.appearance.overlayTranslatedFont,
+                ).catch((e: unknown) => setModelsDir(`字体应用失败: ${e}`));
+              }}
             />
             <span className="text-[1.05rem] text-muted-foreground">
               {draft.appearance.overlayTranslatedFont.family} · {draft.appearance.overlayTranslatedFont.size}px

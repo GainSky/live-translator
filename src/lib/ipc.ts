@@ -144,7 +144,10 @@ export function onTranscriptUpdate(
 export function onSettingsChanged(
   cb: (s: Settings) => void,
 ): Promise<UnlistenFn> {
-  return listen<Settings>(EVENTS.settingsChanged, (e) => cb(e.payload));
+  // 载荷为 { settings: Settings }（后端 SettingsChangedPayload），需解包
+  return listen<{ settings: Settings }>(EVENTS.settingsChanged, (e) =>
+    cb(e.payload.settings),
+  );
 }
 
 export function onModelProgress(

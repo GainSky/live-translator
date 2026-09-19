@@ -9,6 +9,8 @@ import type { FontPref } from "@/types";
 export function FontPopover(props: {
   value: FontPref;
   onChange: (f: FontPref) => void;
+  /** 「保存并应用」点击后回调（可做字段级即时持久化） */
+  onApply?: (f: FontPref) => void;
   label: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -21,7 +23,12 @@ export function FontPopover(props: {
   }, [props.value]);
 
   const apply = () => {
-    props.onChange({ family: family.trim() || "system-ui", size: Math.min(72, Math.max(9, size)) });
+    const f: FontPref = {
+      family: family.trim() || "system-ui",
+      size: Math.min(72, Math.max(9, size)),
+    };
+    props.onChange(f);
+    props.onApply?.(f);
     setOpen(false);
   };
 
