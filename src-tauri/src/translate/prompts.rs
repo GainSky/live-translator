@@ -14,7 +14,7 @@ pub const NO_THINKING: &str = "不要输出任何思考过程、推理内容、�
 pub fn lang_display_name(code: &str) -> &'static str {
     match code {
         "zh-TW" => "繁體中文 (Traditional Chinese)",
-        "zh-CN" => "簡體中文 (Simplified Chinese)",
+        "zh-CN" => "简体中文 (Simplified Chinese)",
         "en" => "英文 (English)",
         "ja" => "日文 (Japanese)",
         "ko" => "韓文 (Korean)",
@@ -22,7 +22,7 @@ pub fn lang_display_name(code: &str) -> &'static str {
         "fr" => "法文 (French)",
         "de" => "德文 (German)",
         "ru" => "俄文 (Russian)",
-        _ => "繁體中文",
+        _ => "简体中文",
     }
 }
 
@@ -64,6 +64,14 @@ pub fn render_builtin_system(target_lang: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zh_cn_name_is_simplified() {
+        // 回归：zh-CN 的语言名曾是繁体字形（簡體中文），导致提示词混入繁体
+        let name = lang_display_name("zh-CN");
+        assert_eq!(name, "简体中文 (Simplified Chinese)");
+        assert!(!name.contains('簡') && !name.contains('體'));
+    }
 
     #[test]
     fn render_prompts() {
