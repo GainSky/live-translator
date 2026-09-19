@@ -260,7 +260,10 @@ pub(crate) fn translation_worker(
         };
 
         if cfg.provider == "builtin" && !hub.is_loaded() {
-            emit_state("loading", Some("首次使用需加载翻译模型（约 8s）".into()));
+            let dir = model_root_getter()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "（未知）".into());
+            emit_state("loading", Some(format!("模型目录: {dir}")));
         }
 
         let Some(model_root) = model_root_getter() else {

@@ -102,6 +102,10 @@ export function setOverlayLock(locked: boolean): Promise<void> {
   return invoke("set_overlay_lock", { locked });
 }
 
+export function resetOverlayPos(): Promise<void> {
+  return invoke("reset_overlay_pos");
+}
+
 // ---- 事件订阅 ----
 export function onTranscript(
   cb: (item: TranscriptItem) => void,

@@ -376,16 +376,7 @@ export function SettingsPage() {
             {draft.appearance.mainFont.family} · {draft.appearance.mainFont.size}px
           </span>
         </Field>
-        <Field label="悬浮窗字体（M4 生效）">
-          <FontPopover
-            label="编辑"
-            value={draft.appearance.overlayFont}
-            onChange={(overlayFont) => edit((d) => (d.appearance.overlayFont = overlayFont))}
-          />
-          <span className="text-xs text-muted-foreground">
-            {draft.appearance.overlayFont.family} · {draft.appearance.overlayFont.size}px
-          </span>
-        </Field>
+
       </section>
 
       {/* ===== 模型管理 ===== */}
@@ -503,6 +494,36 @@ export function SettingsPage() {
         <p className="text-[1.05rem] leading-relaxed text-muted-foreground">
           模型存放目录：models/（Windows 与 exe 同目录；Linux 见 readme
           §10.2）。下载支持断点续传，完成后自动 sha256 校验与解压。
+        </p>
+      </section>
+
+      {/* ===== 悬浮窗 ===== */}
+      <section className="space-y-3 rounded-lg border border-border bg-card p-5">
+        <h2 className="text-[1.35rem] font-semibold">悬浮窗</h2>
+        <Field label="显示模式">
+          <select
+            value={draft.appearance.overlayMode}
+            onChange={(e) => edit((d) => (d.appearance.overlayMode = e.target.value as Settings["appearance"]["overlayMode"]))}
+            className="input"
+          >
+            <option value="both">双语（原文 + 译文）</option>
+            <option value="raw">仅原文</option>
+            <option value="translated">仅译文</option>
+          </select>
+        </Field>
+        <Field label="悬浮窗字体">
+          <FontPopover
+            label="编辑"
+            value={draft.appearance.overlayFont}
+            onChange={(overlayFont) => edit((d) => (d.appearance.overlayFont = overlayFont))}
+          />
+          <span className="text-[1.05rem] text-muted-foreground">
+            {draft.appearance.overlayFont.family} · {draft.appearance.overlayFont.size}px
+          </span>
+        </Field>
+        <p className="text-[1.05rem] text-muted-foreground">
+          打开方式：转写页工具栏「悬浮窗」按钮；窗体可直接拖动，底部控制条可切换模式与锁定
+          （锁定 = 点击穿透，解锁请回主窗）。
         </p>
       </section>
 

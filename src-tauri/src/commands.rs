@@ -173,6 +173,18 @@ pub fn show_overlay(app: AppHandle, state: State<'_, SettingsState>) -> AppResul
     Ok(())
 }
 
+/// 重置悬浮窗位置（清除记忆位置并移动到默认位置）
+#[tauri::command]
+pub fn reset_overlay_pos(app: AppHandle, state: State<'_, SettingsState>) -> AppResult<()> {
+    let window = app
+        .get_webview_window("overlay")
+        .ok_or_else(|| AppError::Message("悬浮窗未初始化".into()))?;
+    state.0.lock().unwrap().appearance.overlay_pos = None;
+    window.set_position(tauri::LogicalPosition::new(120.0, 120.0))?;
+    tracing::info!("悬浮窗位置已重置");
+    Ok(())
+}
+
 /// 悬浮窗锁定（点击穿透）：锁定后鼠标事件穿透到下层窗口，
 /// 解锁请用主窗转写页的「解锁悬浮窗」按钮
 #[tauri::command]

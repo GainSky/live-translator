@@ -89,8 +89,19 @@ export function OverlayApp() {
     invoke("set_overlay_lock", { locked: next }).catch(console.error);
   };
 
+  const startDrag = (e: React.MouseEvent) => {
+    // 左键且未点到按钮/控制条 → 开始拖动窗口
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    getCurrentWindow().startDragging().catch(() => {});
+  };
+
   return (
-    <div ref={contentRef} className="flex flex-col gap-1 px-5 py-2">
+    <div
+      ref={contentRef}
+      onMouseDown={startDrag}
+      className={"flex flex-col gap-1 px-5 py-2 " + (locked ? "cursor-default" : "cursor-move")}
+    >
       {/* 前句：新句到达时进入淡出动画，播完自动卸载（onAnimationEnd） */}
       {prev && (
         <div

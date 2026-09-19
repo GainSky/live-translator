@@ -86,6 +86,7 @@ pub fn run() {
             commands::show_overlay,
             commands::hide_overlay,
             commands::set_overlay_lock,
+            commands::reset_overlay_pos,
         ])
         .on_window_event(|window, event| {
             use tauri::Manager;
