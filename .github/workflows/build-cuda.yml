@@ -9,7 +9,9 @@ on:
 
 jobs:
   build-windows-cuda:
-    runs-on: windows-latest
+    # 钉在 windows-2022：其 MSVC 为 VS2022（CUDA 12.8 host_config.h 支持 2017-2022）；
+    # windows-latest 已带 VS2026（cl 19.50+），nvcc 会报 unsupported MSVC version
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
