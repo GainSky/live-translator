@@ -612,10 +612,13 @@ export function SettingsPage() {
 }
 
 function Field(props: { label: string; children: React.ReactNode }) {
+  // 注意：必须用 div 而非 label——label 的激活行为会把点击转发给字段内
+  // 第一个可标记控件（如字体弹层的「编辑」按钮），导致「保存并应用」
+  // 关闭弹层后立刻被合成点击重新打开（表现为"应用无反应/弹层不消失"）
   return (
-    <label className="flex flex-col gap-1.5 text-[1.05rem]">
+    <div className="flex flex-col gap-1.5 text-[1.05rem]">
       <span className="text-muted-foreground">{props.label}</span>
       {props.children}
-    </label>
+    </div>
   );
 }
