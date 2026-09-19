@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { getSettings, onTranscript, onTranscriptUpdate } from "@/lib/ipc";
+import { getSettings, onTranscript, onTranscriptUpdate, onSettingsChanged, setOverlayDisplay } from "@/lib/ipc";
 import { DEFAULT_SETTINGS, type OverlayMode, type Settings, type TranscriptItem } from "@/types";
 
 const MODE_LABEL: Record<OverlayMode, string> = {
@@ -31,6 +31,7 @@ export function OverlayApp() {
   useEffect(() => {
     getSettings().then(setSettings).catch(() => {});
     const unsubs = [
+      onSettingsChanged((s) => setSettings(s)),
       onTranscript((t) => {
         // 旧句转入淡出槽；无旧句则直接显示新句
         setPrev(latestRef.current);
@@ -73,14 +74,17 @@ export function OverlayApp() {
   const font = settings.appearance.overlayFont;
 
   const setMode = (m: OverlayMode) => {
-    const next: Settings = {
+    // 专用命令：只更新悬浮窗显示偏好，不触碰其他设置（避免跨窗口整份覆盖）
+    setOverlayDisplay(
+      m,
+      settings.appearance.overlayRawColor,
+      settings.appearance.overlayTranslatedColor,
+      settings.appearance.overlayFont,
+    ).catch((e) => console.warn("模式保存失败:", e));
+    setSettings({
       ...settings,
       appearance: { ...settings.appearance, overlayMode: m },
-    };
-    setSettings(next);
-    invoke("save_settings", { settings: next }).catch((e) =>
-      console.warn("模式保存失败:", e),
-    );
+    });
   };
 
   const toggleLock = () => {

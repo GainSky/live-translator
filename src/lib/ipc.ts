@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioDeviceInfo,
+  FontPref,
+  OverlayMode,
   QueueItemInfo,
   ModelInfo,
   ModelProgress,
@@ -25,6 +27,7 @@ export const EVENTS = {
   audioLevel: "audio:level",
   pipelineError: "pipeline:error",
   modelProgress: "model:progress",
+  settingsChanged: "settings:changed",
 } as const;
 
 // ---- 命令 ----
@@ -98,6 +101,15 @@ export function hideOverlay(): Promise<void> {
   return invoke("hide_overlay");
 }
 
+export function setOverlayDisplay(
+  mode: OverlayMode,
+  rawColor: string,
+  translatedColor: string,
+  font: FontPref,
+): Promise<void> {
+  return invoke("set_overlay_display", { mode, rawColor, translatedColor, font });
+}
+
 export function setOverlayLock(locked: boolean): Promise<void> {
   return invoke("set_overlay_lock", { locked });
 }
@@ -120,6 +132,12 @@ export function onTranscriptUpdate(
     EVENTS.transcriptUpdate,
     (e) => cb(e.payload),
   );
+}
+
+export function onSettingsChanged(
+  cb: (s: Settings) => void,
+): Promise<UnlistenFn> {
+  return listen<Settings>(EVENTS.settingsChanged, (e) => cb(e.payload));
 }
 
 export function onModelProgress(

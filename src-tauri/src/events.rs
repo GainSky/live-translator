@@ -8,6 +8,7 @@ pub const EV_TRANSLATE_STATE: &str = "translate:state";
 pub const EV_AUDIO_LEVEL: &str = "audio:level";
 pub const EV_PIPELINE_ERROR: &str = "pipeline:error";
 pub const EV_MODEL_PROGRESS: &str = "model:progress";
+pub const EV_SETTINGS_CHANGED: &str = "settings:changed";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +61,13 @@ pub struct ModelProgressPayload {
     pub downloaded: u64,
     pub total: u64,
     pub error: Option<String>,
+}
+
+/// 设置变更广播（任一窗口保存后，所有窗口收敛到同一份配置）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsChangedPayload {
+    pub settings: crate::settings::Settings,
 }
 
 /// 译文回填事件（翻译队列完成后推送）

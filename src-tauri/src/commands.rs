@@ -4,6 +4,8 @@ use std::path::Path;
 use tauri::{AppHandle, Manager, State};
 use tauri::Emitter;
 
+use crate::events::{EV_SETTINGS_CHANGED, SettingsChangedPayload};
+
 use crate::error::{AppError, AppResult};
 use crate::pipeline::PipelineManager;
 use crate::settings::Settings;
@@ -91,8 +93,38 @@ pub fn save_settings(
     // Windows: exe 同目录 | Linux/macOS: ~/.config/{identifier}
     let dir = crate::settings::settings_dir(&app)?;
     crate::settings::save(&dir, &settings)?;
-    *state.0.lock().unwrap() = settings;
+    *state.0.lock().unwrap() = settings.clone();
+    // 广播给所有窗口（主窗/悬浮窗收敛到同一份配置，避免互相覆盖）
+    let _ = app.emit(EV_SETTINGS_CHANGED, SettingsChangedPayload { settings: settings.clone() });
     tracing::info!("设置已保存至 {}", dir.join("settings.json").display());
+    Ok(())
+}
+
+/// 悬浮窗显示偏好专用更新：只修改悬浮窗相关字段，
+/// 不触碰 targetLang 等其他设置（修复跨窗口整份覆盖导致的回退）
+#[tauri::command]
+pub fn set_overlay_display(
+    app: AppHandle,
+    state: State<'_, SettingsState>,
+    mode: String,
+    raw_color: String,
+    translated_color: String,
+    font: crate::settings::FontPref,
+) -> AppResult<()> {
+    match mode.as_str() {
+        "both" | "raw" | "translated" => {}
+        other => return Err(AppError::Message(format!("未知显示模式: {other}"))),
+    }
+    let mut cfg = state.0.lock().unwrap().clone();
+    cfg.appearance.overlay_mode = mode.clone();
+    cfg.appearance.overlay_raw_color = raw_color;
+    cfg.appearance.overlay_translated_color = translated_color;
+    cfg.appearance.overlay_font = font;
+    let dir = crate::settings::settings_dir(&app)?;
+    crate::settings::save(&dir, &cfg)?;
+    *state.0.lock().unwrap() = cfg.clone();
+    let _ = app.emit(EV_SETTINGS_CHANGED, SettingsChangedPayload { settings: cfg });
+    tracing::info!("悬浮窗显示偏好已更新: {mode}");
     Ok(())
 }
 
