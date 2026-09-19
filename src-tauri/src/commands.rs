@@ -109,7 +109,8 @@ pub fn set_overlay_display(
     mode: String,
     raw_color: String,
     translated_color: String,
-    font: crate::settings::FontPref,
+    raw_font: crate::settings::FontPref,
+    translated_font: crate::settings::FontPref,
 ) -> AppResult<()> {
     match mode.as_str() {
         "both" | "raw" | "translated" => {}
@@ -119,7 +120,8 @@ pub fn set_overlay_display(
     cfg.appearance.overlay_mode = mode.clone();
     cfg.appearance.overlay_raw_color = raw_color;
     cfg.appearance.overlay_translated_color = translated_color;
-    cfg.appearance.overlay_font = font;
+    cfg.appearance.overlay_raw_font = raw_font;
+    cfg.appearance.overlay_translated_font = translated_font;
     let dir = crate::settings::settings_dir(&app)?;
     crate::settings::save(&dir, &cfg)?;
     *state.0.lock().unwrap() = cfg.clone();

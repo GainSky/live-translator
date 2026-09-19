@@ -511,16 +511,28 @@ export function SettingsPage() {
             <option value="translated">仅译文</option>
           </select>
         </Field>
-        <Field label="悬浮窗字体（字号在弹层内滑杆调整）">
-          <FontPopover
-            label="编辑"
-            value={draft.appearance.overlayFont}
-            onChange={(overlayFont) => edit((d) => (d.appearance.overlayFont = overlayFont))}
-          />
-          <span className="text-[1.05rem] text-muted-foreground">
-            {draft.appearance.overlayFont.family} · {draft.appearance.overlayFont.size}px
-          </span>
-        </Field>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="原文行字体（字号在弹层内调整）">
+            <FontPopover
+              label="编辑"
+              value={draft.appearance.overlayRawFont}
+              onChange={(f) => edit((d) => (d.appearance.overlayRawFont = f))}
+            />
+            <span className="text-[1.05rem] text-muted-foreground">
+              {draft.appearance.overlayRawFont.family} · {draft.appearance.overlayRawFont.size}px
+            </span>
+          </Field>
+          <Field label="译文行字体（字号在弹层内调整）">
+            <FontPopover
+              label="编辑"
+              value={draft.appearance.overlayTranslatedFont}
+              onChange={(f) => edit((d) => (d.appearance.overlayTranslatedFont = f))}
+            />
+            <span className="text-[1.05rem] text-muted-foreground">
+              {draft.appearance.overlayTranslatedFont.family} · {draft.appearance.overlayTranslatedFont.size}px
+            </span>
+          </Field>
+        </div>
         <Field label="原文颜色">
           <div className="flex items-center gap-2">
             <input

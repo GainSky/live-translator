@@ -1,12 +1,16 @@
-//! 悬浮窗（桌面歌词模式）v2.2
+//! 悬浮窗（桌面歌词模式）v2.3
 //!
 //! - 窗口自动增高：ResizeObserver 测量内容高度 → setSize（宽度保持，位置左上角不动）
 //! - 前句淡出：新句到达时旧句以 CSS 动画淡出，播完自动卸载（文字不再残留）
-//! - 行数与显示模式：有译文按模式（双语两行/仅原文/仅译文）；无译文回落单行原文
-//! - 悬浮窗本体上切换模式 + 锁定（穿透）；模式切换即持久化
-//! - 按钮固定尺寸 + 填充式高亮，杜绝回流导致的错位
+//! - 显示逻辑（v2.3 修正）：
+//!     双语模式：原文行 + 译文行（译文未到时先显示原文行，回填后原地替换）
+//!     仅原文：单行原文
+//!     仅译文：**不显示原文**（不可见占位保持高度，避免短暂重叠），译文到达后显示
+//! - 原文行/译文行字体独立（overlayRawFont / overlayTranslatedFont）
+//! - 悬浮窗本体上可直接切换显示模式与锁定（穿透）；模式切换即持久化
+//! - 拖动：onMouseDown + startDragging（子元素点击不触发 drag region 的规避）
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { getSettings, onTranscript, onTranscriptUpdate, onSettingsChanged, setOverlayDisplay } from "@/lib/ipc";
@@ -27,13 +31,13 @@ export function OverlayApp() {
   const contentRef = useRef<HTMLDivElement>(null);
   const lastSizeRef = useRef({ w: 0, h: 0 });
 
-  // 独立 WebView 实例：自行拉取设置（字体/模式）
+  // 独立 WebView 实例：自行拉取设置（字体/模式/颜色）
   useEffect(() => {
     getSettings().then(setSettings).catch(() => {});
     const unsubs = [
+      // 任一窗口保存设置 → 收敛到同一份配置（字体/颜色/模式实时跟随）
       onSettingsChanged((s) => setSettings(s)),
       onTranscript((t) => {
-        // 旧句转入淡出槽；无旧句则直接显示新句
         setPrev(latestRef.current);
         latestRef.current = t;
         setLatest(t);
@@ -71,7 +75,8 @@ export function OverlayApp() {
   }, []);
 
   const mode: OverlayMode = settings.appearance.overlayMode as OverlayMode;
-  const font = settings.appearance.overlayFont;
+  const rawFont = settings.appearance.overlayRawFont;
+  const trFont = settings.appearance.overlayTranslatedFont;
 
   const setMode = (m: OverlayMode) => {
     // 专用命令：只更新悬浮窗显示偏好，不触碰其他设置（避免跨窗口整份覆盖）
@@ -79,7 +84,8 @@ export function OverlayApp() {
       m,
       settings.appearance.overlayRawColor,
       settings.appearance.overlayTranslatedColor,
-      settings.appearance.overlayFont,
+      settings.appearance.overlayRawFont,
+      settings.appearance.overlayTranslatedFont,
     ).catch((e) => console.warn("模式保存失败:", e));
     setSettings({
       ...settings,
@@ -94,10 +100,22 @@ export function OverlayApp() {
   };
 
   const startDrag = (e: React.MouseEvent) => {
-    // 左键且未点到按钮/控制条 → 开始拖动窗口
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("button")) return;
     getCurrentWindow().startDragging().catch(() => {});
+  };
+
+  const rawStyle: CSSProperties = {
+    fontFamily: rawFont.family,
+    fontSize: `${rawFont.size}px`,
+    color: settings.appearance.overlayRawColor,
+    textShadow: "0 1px 4px rgb(0 0 0 / 0.85), 0 0 2px rgb(0 0 0 / 0.9)",
+  };
+  const trStyle: CSSProperties = {
+    fontFamily: trFont.family,
+    fontSize: `${trFont.size}px`,
+    color: settings.appearance.overlayTranslatedColor,
+    textShadow: "0 1px 4px rgb(0 0 0 / 0.85), 0 0 2px rgb(0 0 0 / 0.9)",
   };
 
   return (
@@ -112,21 +130,17 @@ export function OverlayApp() {
           key={prev.id}
           onAnimationEnd={() => setPrev(null)}
           className="overlay-fadeout truncate text-center leading-tight"
-          style={{ fontFamily: font.family, fontSize: `${font.size}px` }}
         >
-          <OverlayText item={prev} mode={mode} rawColor={settings.appearance.overlayRawColor} translatedColor={settings.appearance.overlayTranslatedColor} />
+          <OverlayText item={prev} mode={mode} rawStyle={rawStyle} trStyle={trStyle} />
         </div>
       )}
 
       {/* 最新句 */}
-      <div
-        className="truncate text-center leading-tight"
-        style={{ fontFamily: font.family, fontSize: `${font.size}px` }}
-      >
+      <div className="truncate text-center leading-tight">
         {latest ? (
-          <OverlayText item={latest} mode={mode} rawColor={settings.appearance.overlayRawColor} translatedColor={settings.appearance.overlayTranslatedColor} />
+          <OverlayText item={latest} mode={mode} rawStyle={rawStyle} trStyle={trStyle} />
         ) : (
-          <span className="opacity-40">
+          <span className="opacity-40" style={rawStyle}>
             等待转写内容…
           </span>
         )}
@@ -161,44 +175,47 @@ export function OverlayApp() {
   );
 }
 
-/** 按显示模式产出内容（行截断由外层 truncate 保证）：
+/** 按显示模式产出内容（每行由外层 truncate 保证单行）：
  *  - raw：单行原文
- *  - translated：单行译文（无译文回落原文）
- *  - both：两行（原文行 + 译文行）；无译文 → 单行原文 */
+ *  - translated：译文未到时**不显示原文**（不可见占位保持行高，避免短暂重叠），
+ *    译文到达后显示
+ *  - both：原文行 + 译文行（译文未到时先显示原文行，回填后原地替换） */
 function OverlayText(props: {
   item: TranscriptItem;
   mode: OverlayMode;
-  rawColor: string;
-  translatedColor: string;
+  rawStyle: CSSProperties;
+  trStyle: CSSProperties;
 }) {
-  const { item, mode, rawColor, translatedColor } = props;
+  const { item, mode, rawStyle, trStyle } = props;
   const hasT = !!item.translatedText;
-  const shadow = { textShadow: "0 1px 4px rgb(0 0 0 / 0.85), 0 0 2px rgb(0 0 0 / 0.9)" };
 
-  if (mode === "translated" && hasT) {
+  if (mode === "translated") {
+    if (!hasT) {
+      // 不可见占位：保持行高，避免窗口高度跳动
+      return <span className="block truncate opacity-0">{item.rawText}</span>;
+    }
     return (
-      <span className="block truncate" style={{ color: translatedColor, ...shadow }}>
+      <span className="block truncate" style={trStyle}>
         {item.translatedText}
       </span>
     );
   }
-  if (mode === "both" && hasT) {
+  if (mode === "both") {
     return (
       <span className="block">
-        <span className="block truncate font-semibold" style={{ color: rawColor, ...shadow }}>
+        <span className="block truncate font-semibold" style={rawStyle}>
           {item.rawText}
         </span>
-        <span
-          className="mt-0.5 block truncate text-[0.75em]"
-          style={{ color: translatedColor, ...shadow }}
-        >
-          {item.translatedText}
-        </span>
+        {hasT && (
+          <span className="mt-0.5 block truncate" style={trStyle}>
+            {item.translatedText}
+          </span>
+        )}
       </span>
     );
   }
   return (
-    <span className="block truncate font-semibold" style={{ color: rawColor, ...shadow }}>
+    <span className="block truncate font-semibold" style={rawStyle}>
       {item.rawText}
     </span>
   );

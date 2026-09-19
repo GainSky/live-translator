@@ -98,7 +98,8 @@ export interface Settings {
     theme: ThemePref;
     showTranslated: boolean;
     mainFont: FontPref;
-    overlayFont: FontPref;
+    overlayRawFont: FontPref;
+    overlayTranslatedFont: FontPref;
     overlayMode: OverlayMode;
     /** 原文文字颜色（十六进制） */
     overlayRawColor: string;
@@ -146,7 +147,8 @@ export const DEFAULT_SETTINGS: Settings = {
     theme: "system",
     showTranslated: true,
     mainFont: { family: "system-ui", size: 18 },
-    overlayFont: { family: "system-ui", size: 26 },
+    overlayRawFont: { family: "system-ui", size: 26 },
+    overlayTranslatedFont: { family: "system-ui", size: 22 },
     overlayMode: "both",
     overlayRawColor: "#ffffff",
     overlayTranslatedColor: "#ffd166",

@@ -121,7 +121,10 @@ pub struct AppearanceSettings {
     pub theme: String,
     pub show_translated: bool,
     pub main_font: FontPref,
-    pub overlay_font: FontPref,
+    /// 悬浮窗原文行字体（独立设置）
+    pub overlay_raw_font: FontPref,
+    /// 悬浮窗译文行字体（独立设置）
+    pub overlay_translated_font: FontPref,
     /// "both" | "raw" | "translated"
     pub overlay_mode: String,
     /// 原文文字颜色（十六进制，如 #ffffff）
@@ -144,7 +147,8 @@ impl Default for AppearanceSettings {
             theme: "system".into(),
             show_translated: true,
             main_font: Default::default(),
-            overlay_font: FontPref { family: "system-ui".into(), size: 26 },
+            overlay_raw_font: FontPref { family: "system-ui".into(), size: 26 },
+            overlay_translated_font: FontPref { family: "system-ui".into(), size: 22 },
             overlay_mode: "both".into(),
             overlay_raw_color: "#ffffff".into(),
             overlay_translated_color: "#ffd166".into(),

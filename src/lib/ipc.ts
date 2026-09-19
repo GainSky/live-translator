@@ -105,9 +105,16 @@ export function setOverlayDisplay(
   mode: OverlayMode,
   rawColor: string,
   translatedColor: string,
-  font: FontPref,
+  rawFont: FontPref,
+  translatedFont: FontPref,
 ): Promise<void> {
-  return invoke("set_overlay_display", { mode, rawColor, translatedColor, font });
+  return invoke("set_overlay_display", {
+    mode,
+    rawColor,
+    translatedColor,
+    rawFont,
+    translatedFont,
+  });
 }
 
 export function setOverlayLock(locked: boolean): Promise<void> {
