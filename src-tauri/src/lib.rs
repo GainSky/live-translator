@@ -17,19 +17,37 @@ use std::sync::Mutex;
 pub struct SettingsState(pub Mutex<Settings>);
 
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(PipelineManager::default())
         .manage(SettingsState(Mutex::new(Settings::default())))
         .setup(|app| {
             use tauri::Manager;
+            use tracing_subscriber::{layer::SubscriberExt, layer::Layer as _, util::SubscriberInitExt, EnvFilter};
+
+            // 日志初始化：双写（终端 + 每日滚动文件）。
+            // Windows release 为 GUI 子系统无控制台 → 文件是唯一可靠日志出口，
+            // 位置：<app_data_dir>/logs/live-translator.log.YYYY-MM-DD
+            let data_dir = app.path().app_data_dir()?;
+            let log_dir = data_dir.join("logs");
+            std::fs::create_dir_all(&log_dir)?;
+            let filter = EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info"));
+            let file_appender = tracing_appender::rolling::daily(&log_dir, "live-translator.log");
+            tracing_subscriber::registry()
+                .with(
+                    tracing_subscriber::fmt::layer()
+                        .with_writer(std::io::stdout)
+                        .with_ansi(false)
+                        .with_filter(filter.clone()),
+                )
+                .with(
+                    tracing_subscriber::fmt::layer()
+                        .with_writer(file_appender)
+                        .with_ansi(false)
+                        .with_filter(filter),
+                )
+                .init();
 
             // 载入用户设置：
             //   Windows: exe 同目录 | Linux/macOS: ~/.config/{identifier}
