@@ -100,11 +100,13 @@ pub fn run() {
             commands::test_translation,
             commands::export_transcripts,
             commands::list_models,
+            commands::resolve_models_dir,
             commands::download_model,
             commands::show_overlay,
             commands::hide_overlay,
             commands::set_overlay_lock,
             commands::reset_overlay_pos,
+            commands::set_overlay_display,
         ])
         .on_window_event(|window, event| {
             use tauri::Manager;
