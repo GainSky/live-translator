@@ -67,9 +67,19 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+      # 注意：此 job 禁用 rust-cache——缓存保存/恢复会丢失
+      # target/release/sherpa-onnx-prebuilt/（sherpa 预构建库的自定义目录），
+      # 但保留构建脚本指纹 → 不再重新下载 → rustc 报
+      # "could not find native static library sherpa-onnx-c-api"。
+      # 无缓存的全新构建已验证可靠（仅构建时间较长）
+      # - uses: Swatinem/rust-cache@v2
+
+      - name: Debug sherpa prebuilt state
+        run: |
+          echo "--- sherpa-onnx-prebuilt ---"
+          Get-ChildItem "target/release/sherpa-onnx-prebuilt" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 10 FullName
+          echo "--- sherpa-onnx-sys build out ---"
+          Get-ChildItem "target/release/build/sherpa-onnx-sys-*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 5 FullName
 
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
