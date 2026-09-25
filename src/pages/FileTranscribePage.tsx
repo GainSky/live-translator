@@ -36,6 +36,7 @@ function fmtSecs(s: number): string {
 
 export function FileTranscribePage() {
   const showTranslated = useAppStore((s) => s.settings.appearance.showTranslated);
+  const updateAppearance = useAppStore((s) => s.updateAppearance);
   const targetLang = useAppStore((s) => s.settings.translation.targetLang);
   const setLastError = useAppStore((s) => s.setLastError);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -172,6 +173,15 @@ export function FileTranscribePage() {
         >
           选择文件…
         </button>
+        <label className="flex items-center gap-2 text-[1.05rem]">
+          <input
+            type="checkbox"
+            className="h-5 w-5 accent-[hsl(var(--primary))]"
+            checked={showTranslated}
+            onChange={(e) => updateAppearance({ showTranslated: e.target.checked })}
+          />
+          显示译文
+        </label>
         <select
           value={sourceLang}
           onChange={(e) => setSourceLang(e.target.value)}
