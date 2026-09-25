@@ -38,8 +38,11 @@ export function listAudioDevices(): Promise<AudioDeviceInfo[]> {
   return invoke("list_audio_devices");
 }
 
-export function startPipeline(sourceIds: string[]): Promise<void> {
-  return invoke("start_pipeline", { sourceIds });
+export function startPipeline(
+  sourceIds: string[],
+  sourceLang: string,
+): Promise<void> {
+  return invoke("start_pipeline", { sourceIds, sourceLang });
 }
 
 export function stopPipeline(): Promise<void> {

@@ -133,17 +133,6 @@ export function SettingsPage() {
       {/* ===== 识别 ===== */}
       <section className="space-y-3 rounded-lg border border-border bg-card p-5">
         <h2 className="text-[1.35rem] font-semibold">识别</h2>
-        <Field label="源语言">
-          <select
-            value={draft.asr.sourceLang}
-            onChange={(e) => edit((d) => (d.asr.sourceLang = e.target.value))}
-            className="input"
-          >
-            {SOURCE_LANGS.map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-        </Field>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Field label="VAD 阈值 (0.1–0.9)">
             <input
@@ -187,7 +176,7 @@ export function SettingsPage() {
           </Field>
         </div>
         <p className="text-xs text-muted-foreground">
-          引擎：SenseVoice-Small int8 + Silero VAD（默认参数移植自参考实现）。源语言会作为语言参数注入识别模型（强制判定，提升准确率）；源语言/VAD 参数变更在下次「开始转写」时生效（引擎自动重载，约 3 秒）。
+          引擎：SenseVoice-Small int8 + Silero VAD（默认参数移植自参考实现）。源语言改在「转写」与「文件转写」页按次选择（作为参数传入识别模型）；VAD 参数变更在下次「开始转写」时生效（引擎自动重载，约 3 秒）。
         </p>
       </section>
 

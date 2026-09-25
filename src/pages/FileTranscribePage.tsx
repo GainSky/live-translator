@@ -9,6 +9,7 @@ import {
   exportMediaTranscripts,
   onFileProgress,
   onFileTranscript,
+  onTranscriptUpdate,
   transcribeFile,
 } from "@/lib/ipc";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -39,7 +40,13 @@ export function FileTranscribePage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [filePath, setFilePath] = useState<string | null>(null);
-  const [sourceLang, setSourceLang] = useState("auto");
+  // 源语言：与音频源页共享本地记忆，开始时作为参数注入识别模型
+  const [sourceLang, setSourceLang] = useState(
+    () => localStorage.getItem("lt.sourceLang") ?? "auto",
+  );
+  useEffect(() => {
+    localStorage.setItem("lt.sourceLang", sourceLang);
+  }, [sourceLang]);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<FileProgress | null>(null);
   const [items, setItems] = useState<TranscriptItem[]>([]);
@@ -49,6 +56,16 @@ export function FileTranscribePage() {
     const unsubs = [
       onFileProgress((p) => setProgress(p)),
       onFileTranscript((t) => setItems((cur) => [...cur, t])),
+      // 译文回填（翻译队列完成后 transcript:update）
+      onTranscriptUpdate((u) =>
+        setItems((cur) =>
+          cur.map((it) =>
+            it.id === u.id
+              ? { ...it, translatedText: u.translatedText, provider: u.provider }
+              : it,
+          ),
+        ),
+      ),
     ];
     return () => unsubs.forEach((p) => p.then((f) => f()).catch(() => {}));
   }, []);

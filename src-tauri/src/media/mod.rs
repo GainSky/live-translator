@@ -72,6 +72,7 @@ pub fn transcribe_file(
     app: &AppHandle,
     media: &MediaState,
     path: String,
+    source_lang: String,
 ) -> AppResult<MediaSessionInfo> {
     if !Path::new(&path).is_file() {
         return Err(AppError::Message(format!("文件不存在: {path}")));
@@ -81,11 +82,11 @@ pub fn transcribe_file(
     let session = Arc::new(SessionStore::new(&data_dir));
     media.begin(session.clone(), stop.clone())?;
 
-    // 快照设置（源语言 + VAD 参数）
+    // 快照设置（VAD 参数；源语言由页面选择作为参数传入）
     let settings = app.state::<SettingsState>();
-    let (source_lang, vad_params) = {
+    let vad_params = {
         let s = settings.0.lock().unwrap();
-        (s.asr.source_lang.clone(), s.asr.vad.clone())
+        s.asr.vad.clone()
     };
     let file_name = Path::new(&path)
         .file_name()

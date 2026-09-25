@@ -92,7 +92,6 @@ export interface TranslationConfig {
 export interface Settings {
   asr: {
     engine: "sense-voice";
-    sourceLang: string;
     vad: VadParams;
   };
   translation: TranslationConfig;
@@ -120,7 +119,6 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   asr: {
     engine: "sense-voice",
-    sourceLang: "auto",
     vad: {
       threshold: 0.4,
       minSilenceMs: 500,

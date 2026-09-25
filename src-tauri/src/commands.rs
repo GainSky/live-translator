@@ -46,9 +46,10 @@ pub fn start_pipeline(
     state: State<'_, PipelineManager>,
     settings: State<'_, SettingsState>,
     source_ids: Vec<String>,
+    source_lang: String,
 ) -> AppResult<()> {
     let s = settings.0.lock().unwrap().clone();
-    state.start(&app, source_ids, &s)
+    state.start(&app, source_ids, &s, &source_lang)
 }
 
 #[tauri::command]
@@ -62,8 +63,9 @@ pub fn transcribe_file(
     app: AppHandle,
     media: State<'_, crate::media::MediaState>,
     path: String,
+    source_lang: String,
 ) -> AppResult<crate::media::MediaSessionInfo> {
-    crate::media::transcribe_file(&app, &media, path)
+    crate::media::transcribe_file(&app, &media, path, source_lang)
 }
 
 #[tauri::command]

@@ -51,8 +51,16 @@ export function SourcesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 源语言：按次选择（开始转写时作为参数注入识别模型），本地记忆
+  const [sourceLang, setSourceLang] = useState(
+    () => localStorage.getItem("lt.sourceLang") ?? "auto",
+  );
+  useEffect(() => {
+    localStorage.setItem("lt.sourceLang", sourceLang);
+  }, [sourceLang]);
+
   const onStart = () => {
-    startPipeline(selectedIds)
+    startPipeline(selectedIds, sourceLang)
       .then(() => {
         setRunning(true, selectedIds);
         setLastError(null);
@@ -92,6 +100,20 @@ export function SourcesPage() {
             会话 {session.sessionId} · {session.startClock}
           </span>
         )}
+        <select
+          value={sourceLang}
+          onChange={(e) => setSourceLang(e.target.value)}
+          disabled={running}
+          className="input ml-auto w-auto"
+          title="源语言（开始转写时注入识别模型）"
+        >
+          <option value="auto">语言：自动</option>
+          <option value="zh">语言：中文</option>
+          <option value="en">语言：英语</option>
+          <option value="ja">语言：日语</option>
+          <option value="ko">语言：韩语</option>
+          <option value="yue">语言：粤语</option>
+        </select>
         <button
           onClick={refresh}
           disabled={probing}

@@ -50,7 +50,13 @@ struct SourceHandle {
 
 impl PipelineManager {
     /// 启动选定音频源的转写流水线
-    pub fn start(&self, app: &AppHandle, selected: Vec<String>, settings: &Settings) -> AppResult<()> {
+    pub fn start(
+        &self,
+        app: &AppHandle,
+        selected: Vec<String>,
+        settings: &Settings,
+        source_lang: &str,
+    ) -> AppResult<()> {
         if selected.is_empty() {
             return Err(AppError::Message("未选择音频源".into()));
         }
@@ -58,7 +64,7 @@ impl PipelineManager {
         let vad_model_path = model_root.join("silero_vad.onnx");
 
         // 引擎按需加载（多路共享，状态上报 UI）
-        let engine = self.engine.get_or_load(&model_root, &settings.asr.source_lang, |status, detail| {
+        let engine = self.engine.get_or_load(&model_root, source_lang, |status, detail| {
             let _ = app.emit(
                 EV_ENGINE_STATE,
                 EngineStatePayload { engine: "sense-voice".into(), status, detail },
