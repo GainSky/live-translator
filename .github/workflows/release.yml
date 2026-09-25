@@ -50,14 +50,12 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    # sherpa-onnx 静态编译在 windows-latest 上验证通过（windows-2022 会链接失败）
+    # 必须与 build.yml 的已验证配置完全一致：windows-latest 且不加
+    # msvc-dev-cmd（该步骤会干扰 sherpa-onnx-sys 的静态库构建/链接）。
+    # CUDA 系列 job 则相反——nvcc + sherpa 都需要 msvc-dev-cmd
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      # sherpa C++ 静态编译需要完整 MSVC 环境（cl.exe/INCLUDE/LIB）
-      - name: Setup MSVC dev environment
-        uses: ilammy/msvc-dev-cmd@v1
 
       - uses: pnpm/action-setup@v4
         with:
