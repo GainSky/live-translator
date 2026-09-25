@@ -86,7 +86,7 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*cpu-setup.exe
           if-no-files-found: error
 
-  build-windows-cuda:
+  build-windows-cuda13:
     # 内置翻译引擎 GPU 推理版：需目标机装有 CUDA 13 运行时（驱动 ≥ 580）
     runs-on: windows-2022
     steps:
