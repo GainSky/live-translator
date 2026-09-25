@@ -72,6 +72,10 @@ export function transcribeFile(
   return invoke("transcribe_file", { path, sourceLang });
 }
 
+export function mediaTranscripts(): Promise<TranscriptItem[]> {
+  return invoke("media_transcripts");
+}
+
 export function cancelFileTranscription(): Promise<void> {
   return invoke("cancel_file_transcription");
 }

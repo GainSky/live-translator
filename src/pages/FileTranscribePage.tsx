@@ -6,6 +6,7 @@ import { useAppStore } from "@/stores/appStore";
 import { MainFontControl } from "@/components/FontPopover";
 import {
   cancelFileTranscription,
+  mediaTranscripts,
   exportMediaTranscripts,
   onFileProgress,
   onFileTranscript,
@@ -68,6 +69,25 @@ export function FileTranscribePage() {
       ),
     ];
     return () => unsubs.forEach((p) => p.then((f) => f()).catch(() => {}));
+  }, []);
+
+  // 兜底：直接从后端会话读取条目（与导出同一数据源，译文/时间轴必然一致；
+  // 同时修复切页返回后列表丢失）
+  useEffect(() => {
+    let alive = true;
+    const tick = () => {
+      mediaTranscripts()
+        .then((items) => {
+          if (alive && items.length > 0) setItems(items);
+        })
+        .catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, 800);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
   }, []);
 
   useEffect(() => {

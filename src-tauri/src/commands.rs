@@ -74,6 +74,17 @@ pub fn cancel_file_transcription(media: State<'_, crate::media::MediaState>) -> 
     Ok(())
 }
 
+/// 文件转写会话条目直读（前端轮询刷新；与导出同一数据源，译文必然一致）
+#[tauri::command]
+pub fn media_transcripts(
+    media: State<'_, crate::media::MediaState>,
+) -> Vec<crate::events::TranscriptPayload> {
+    media
+        .current()
+        .map(|s| s.items())
+        .unwrap_or_default()
+}
+
 #[tauri::command]
 pub fn export_media_transcripts(
     media: State<'_, crate::media::MediaState>,

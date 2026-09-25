@@ -103,6 +103,7 @@ pub fn run() {
             commands::export_transcripts,
             commands::transcribe_file,
             commands::cancel_file_transcription,
+            commands::media_transcripts,
             commands::export_media_transcripts,
             commands::list_models,
             commands::resolve_models_dir,
