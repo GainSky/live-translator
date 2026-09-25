@@ -443,9 +443,10 @@ pnpm install --store-dir "$PWD/.pnpm-store"                # pnpm 全局 store
 ### 10.4b 1.0 正式版发布说明
 
 - 版本 1.0.0：M1 核心流水线 / M2 主窗 UI / M3 翻译 / M4 悬浮窗 / M5 导出+模型管理 / CUDA 接入 / M6 打包 全部完成
-- 产物（推送 `v1.0.0` tag 自动构建，Actions 产生草稿 Release）：
-  - `LiveTranslator_1.0.0_x64-setup.exe`（Windows NSIS 中文安装器，CPU 版）
-  - `LiveTranslator_1.0.0_x64-cuda-setup.exe`（Windows CUDA 版，需目标机装有 CUDA 13 运行时，驱动 ≥ 580）
+- 产物（推送 `v1.0.0` tag 自动构建，Actions 产生草稿 Release，共 5 个）：
+  - `LiveTranslator_1.0.0_x64-cpu-setup.exe`（Windows NSIS 中文安装器，CPU 版）
+  - `LiveTranslator_1.0.0_x64-cuda13-setup.exe`（Windows CUDA 13 版，需 CUDA 13 运行时，驱动 ≥ 580）
+  - `LiveTranslator_1.0.0_x64-cuda12-setup.exe`（Windows CUDA 12 版，需 CUDA 12 运行时）
   - `LiveTranslator_1.0.0_amd64.AppImage` / `live-translator_1.0.0_amd64.deb`（Linux，ALSA 音频兜底；PipeWire 完整版本地自建）
 - 安装后首次使用：把 `models/` 目录放到安装目录旁（或设置页指定模型目录），
   模型管理页确认 5 个条目就绪
@@ -493,3 +494,37 @@ candle 纯 Rust 推理的 CPU 档速度有限（§9 实测），启用 CUDA 后�
 - PipeWire 相关代码在 Windows 构建中不参与（cfg 门控 + feature 关闭）
 - 翻译：远程 API（tokenrhythm 等 OpenAI 兼容端点）开箱可用；内置 candle 引擎为 CPU 推理（速度说明见 §9），Windows 上同样适用
 - Wayland/GBM 等排障条目仅适用 Linux
+
+
+## §11 1.1 功能规划：媒体文件转写
+
+读取音频/视频文件，对其中的音频转写成文本（带媒体时间轴），复用现有
+VAD + SenseVoice + 翻译队列 + 导出全链路。
+
+### 阶段一（核心）
+
+**后端 `media` 模块**
+- 解码分两条路径：
+  - 纯 Rust：`symphonia`（wav/mp3/flac/ogg）解码 → 重采样 16k mono f32
+  - 视频/其余容器（mp4/mkv/webm/mov…）：`ffmpeg` 子进程
+    （`ffmpeg -i 输入 -vn -f f32le -ar 16000 -ac 1 pipe:1`），
+    PATH 自动探测，缺失时给出安装提示（winget install Gyan.FFmpeg / pacman -S ffmpeg）
+- 复用 `Segmenter` + `SenseVoice EngineHub`；句段时间轴 = 文件内样本偏移
+  （SRT 导出即成视频字幕）
+- worker 线程命令：`transcribe_file(path, source_lang)`、`cancel_file_transcription()`
+- 事件：`file:progress`（已解码秒数/总时长/已出句数/阶段）；转写文本事件
+  携带 sessionId（与直播会话隔离）
+- 每个文件一个 `SessionStore`（session_id = f-时间-文件名），复用翻译队列
+  与五格式导出；SRT 时间轴直接可作字幕
+
+**前端 `FileTranscribePage`**
+- 选文件（dialog 多选）→ 源语言 → 开始/取消 → 进度条 + 实时出句列表
+- 译文列复用翻译队列（targetLang 全局设置）
+- 导出按钮复用现有保存对话框（SRT/ASS/TXT…）
+
+### 阶段二（增强）
+- 批量文件队列串行转写；ASS 字幕格式；文件并行度可调；
+  ASR GPU（等待 sherpa-onnx 绑定提供 CUDA feature）
+
+### 估算
+后端解码+管线 1-2 天、UI 1 天、导出对接 0.5 天、ffmpeg 兜底 0.5 天。
