@@ -9,6 +9,8 @@ pub const EV_AUDIO_LEVEL: &str = "audio:level";
 pub const EV_PIPELINE_ERROR: &str = "pipeline:error";
 pub const EV_MODEL_PROGRESS: &str = "model:progress";
 pub const EV_SETTINGS_CHANGED: &str = "settings:changed";
+pub const EV_FILE_PROGRESS: &str = "file:progress";
+pub const EV_FILE_TRANSCRIPT: &str = "file:transcript";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +63,18 @@ pub struct ModelProgressPayload {
     pub downloaded: u64,
     pub total: u64,
     pub error: Option<String>,
+}
+
+/// 媒体文件转写进度（phase: preparing/decoding/done/canceled/error）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileProgressPayload {
+    pub path: String,
+    pub phase: String,
+    pub decoded_secs: f64,
+    pub total_secs: Option<f64>,
+    pub segments: u64,
+    pub message: Option<String>,
 }
 
 /// 设置变更广播（任一窗口保存后，所有窗口收敛到同一份配置）

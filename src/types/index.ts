@@ -162,6 +162,16 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
+/** 文件转写进度（Rust events::FileProgressPayload） */
+export interface FileProgress {
+  path: string;
+  phase: "preparing" | "decoding" | "done" | "canceled" | "error" | (string & {});
+  decodedSecs: number;
+  totalSecs: number | null;
+  segments: number;
+  message: string | null;
+}
+
 /** 模型管理页数据（Rust models::ModelsPage） */
 export interface ModelsPage {
   dir: string;

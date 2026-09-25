@@ -197,6 +197,11 @@ impl PipelineManager {
         // 翻译队列独立运行：转写停止后队列中剩余任务继续翻译（readme §10.5 需求）
     }
 
+    /// ASR 引擎共享器（媒体文件转写复用同一份已加载模型）
+    pub fn asr_engine(&self) -> &crate::asr::EngineHub {
+        &self.engine
+    }
+
     pub fn running_sources(&self) -> Vec<String> {
         self.sources.lock().unwrap().keys().cloned().collect()
     }

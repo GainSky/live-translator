@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeEffect } from "@/hooks/useTheme";
 import { TranscriptPage } from "@/pages/TranscriptPage";
+import { FileTranscribePage } from "@/pages/FileTranscribePage";
 import { SourcesPage } from "@/pages/SourcesPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { Sidebar } from "@/components/Sidebar";
@@ -15,10 +16,11 @@ import {
   onTranslateState,
 } from "@/lib/ipc";
 
-export type PageKey = "transcript" | "sources" | "settings";
+export type PageKey = "transcript" | "files" | "sources" | "settings";
 
 const PAGES: Record<PageKey, { title: string; el: ReactNode }> = {
   transcript: { title: "转写", el: <TranscriptPage /> },
+  files: { title: "文件转写", el: <FileTranscribePage /> },
   sources: { title: "音频源", el: <SourcesPage /> },
   settings: { title: "设置", el: <SettingsPage /> },
 };

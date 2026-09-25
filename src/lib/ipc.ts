@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioDeviceInfo,
+  FileProgress,
   FontPref,
   OverlayMode,
   QueueItemInfo,
@@ -28,6 +29,8 @@ export const EVENTS = {
   pipelineError: "pipeline:error",
   modelProgress: "model:progress",
   settingsChanged: "settings:changed",
+  fileProgress: "file:progress",
+  fileTranscript: "file:transcript",
 } as const;
 
 // ---- 命令 ----
@@ -57,6 +60,36 @@ export function saveSettings(settings: Settings): Promise<void> {
 
 export function listModels(): Promise<ModelsPage> {
   return invoke("list_models");
+}
+
+export function transcribeFile(
+  path: string,
+  sourceLang: string,
+): Promise<{ path: string; sessionId: string; segments: number }> {
+  return invoke("transcribe_file", { path, sourceLang });
+}
+
+export function cancelFileTranscription(): Promise<void> {
+  return invoke("cancel_file_transcription");
+}
+
+export function exportMediaTranscripts(
+  format: string,
+  path: string,
+): Promise<string> {
+  return invoke("export_media_transcripts", { format, path });
+}
+
+export function onFileProgress(
+  cb: (p: FileProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<FileProgress>(EVENTS.fileProgress, (e) => cb(e.payload));
+}
+
+export function onFileTranscript(
+  cb: (t: TranscriptItem) => void,
+): Promise<UnlistenFn> {
+  return listen<TranscriptItem>(EVENTS.fileTranscript, (e) => cb(e.payload));
 }
 
 export function resolveModelsDir(): Promise<string> {

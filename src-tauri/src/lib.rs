@@ -4,6 +4,7 @@ pub mod commands;
 pub mod error;
 pub mod events;
 pub mod models;
+pub mod media;
 pub mod pipeline;
 pub mod settings;
 pub mod store;
@@ -20,6 +21,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(PipelineManager::default())
+        .manage(crate::media::MediaState::default())
         .manage(SettingsState(Mutex::new(Settings::default())))
         .setup(|app| {
             use tauri::Manager;
@@ -99,6 +101,9 @@ pub fn run() {
             commands::save_settings,
             commands::test_translation,
             commands::export_transcripts,
+            commands::transcribe_file,
+            commands::cancel_file_transcription,
+            commands::export_media_transcripts,
             commands::list_models,
             commands::resolve_models_dir,
             commands::download_model,

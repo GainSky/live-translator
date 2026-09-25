@@ -58,6 +58,41 @@ pub fn stop_pipeline(state: State<'_, PipelineManager>) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub fn transcribe_file(
+    app: AppHandle,
+    media: State<'_, crate::media::MediaState>,
+    path: String,
+) -> AppResult<crate::media::MediaSessionInfo> {
+    crate::media::transcribe_file(&app, &media, path)
+}
+
+#[tauri::command]
+pub fn cancel_file_transcription(media: State<'_, crate::media::MediaState>) -> AppResult<()> {
+    media.cancel();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn export_media_transcripts(
+    media: State<'_, crate::media::MediaState>,
+    format: String,
+    path: String,
+) -> AppResult<String> {
+    let fmt = crate::store::export::ExportFormat::parse(&format)?;
+    let session = media
+        .current()
+        .ok_or_else(|| AppError::Message("当前没有文件转写会话，请先完成一次文件转写".into()))?;
+    let written = crate::store::export::export(
+        &session.items(),
+        fmt,
+        Path::new(&path),
+        &session.session_id,
+        &session.session_start.format("%Y-%m-%d %H:%M:%S").to_string(),
+    )?;
+    Ok(written.display().to_string())
+}
+
+#[tauri::command]
 pub fn current_session(state: State<'_, PipelineManager>) -> Option<crate::store::SessionInfo> {
     state.current_session()
 }

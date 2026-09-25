@@ -38,6 +38,11 @@ cpal = "0.18"
 # 语音识别：官方 sherpa-onnx Rust 绑定（sherpa-rs 已弃用）
 # static = 静态编译 sherpa-onnx C++（需 cmake + clang + alsa-lib）
 # TODO(M7): CUDA 加速版需换 onnxruntime GPU 构建并启用对应 feature
+# 媒体文件解码（文件转写）：wav/mp3/flac/ogg/m4a/mkv 纯 Rust；
+# 视频与其余容器走 ffmpeg 子进程兜底（media/decode.rs）
+symphonia = { version = "0.5.4", features = [
+  "wav", "mp3", "flac", "ogg", "isomp4", "mkv", "aac", "vorbis", "pcm",
+] }
 sherpa-onnx = { version = "1.13.8", default-features = false, features = ["static"] }
 
 # ===== M3 翻译 =====
