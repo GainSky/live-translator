@@ -100,6 +100,15 @@ impl SessionStore {
 
     /// 回填翻译结果（M3 翻译队列完成后调用）
     pub fn update_translation(&self, id: &str, translated: &str, provider: &str) {
+        // 先更新内存副本——导出与前端直读都以 items 为数据源；
+        // 此前只写 DB，导致日志有翻译但导出/页面全是 null
+        if let Ok(mut items) = self.items.lock() {
+            if let Some(it) = items.iter_mut().find(|i| i.id == id) {
+                it.translated_text = Some(translated.to_string());
+                it.provider = Some(provider.to_string());
+            }
+        }
+        // 再写 SQLite（与 append 相同的锁顺序：items → conn，防死锁）
         let mut guard = self.conn.lock().unwrap();
         if let Some(conn) = guard.as_mut() {
             let _ = conn.execute(
