@@ -3,6 +3,7 @@ import type { PageKey } from "@/App";
 
 const NAV: { key: PageKey; label: string; icon: string }[] = [
   { key: "transcript", label: "转写", icon: "📄" },
+  { key: "files", label: "文件转写", icon: "🎞️" },
   { key: "sources", label: "音频源", icon: "🎙️" },
   { key: "settings", label: "设置", icon: "⚙️" },
 ];
