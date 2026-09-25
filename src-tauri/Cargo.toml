@@ -1,6 +1,6 @@
 [package]
 name = "live-translator"
-version = "1.0.0"
+version = "1.0.1"
 description = "跨平台实时语音转写与翻译（Tauri 2 + Rust + sherpa-onnx）"
 edition = "2021"
 default-run = "live-translator"

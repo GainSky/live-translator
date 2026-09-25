@@ -440,14 +440,19 @@ pnpm install --store-dir "$PWD/.pnpm-store"                # pnpm 全局 store
 | `cargo run could not determine which binary to run` | 项目含 main + smoke 双二进制 | 已在 Cargo.toml 设 `default-run = "live-translator"` |
 | pnpm 报 `[ERR_SQLITE_ERROR] unable to open database file`（构建机沙箱） | 全局 store 在只读路径 | `.npmrc`/`pnpm-workspace.yaml` 已将 store 重定向至工作区 `.pnpm-store/` |
 
-### 10.4b 1.0 正式版发布说明
+### 10.4b 正式版发布说明
 
-- 版本 1.0.0：M1 核心流水线 / M2 主窗 UI / M3 翻译 / M4 悬浮窗 / M5 导出+模型管理 / CUDA 接入 / M6 打包 全部完成
-- 产物（推送 `v1.0.0` tag 自动构建，Actions 产生草稿 Release，共 5 个）：
-  - `LiveTranslator_1.0.0_x64-cpu-setup.exe`（Windows NSIS 中文安装器，CPU 版）
-  - `LiveTranslator_1.0.0_x64-cuda13-setup.exe`（Windows CUDA 13 版，需 CUDA 13 运行时，驱动 ≥ 580）
-  - `LiveTranslator_1.0.0_x64-cuda12-setup.exe`（Windows CUDA 12 版，需 CUDA 12 运行时）
-  - `LiveTranslator_1.0.0_amd64.AppImage` / `live-translator_1.0.0_amd64.deb`（Linux，ALSA 音频兜底；PipeWire 完整版本地自建）
+- **1.0.1**（当前）：新增媒体文件转写（音频/视频 → 文本，symphonia/ffmpeg 解码 + 文件时间轴，
+  SRT 即视频字幕）；修复导出/页面译文缺失（update_translation 未同步内存副本——1.0 遗留）；
+  修复模型下载直链 404（GGUF 文件名拼写）；VAD 句首预缓冲（防起始吞字，可调）；
+  源语言改为转写页/文件页按次选择；悬浮窗长句自动换行、显示译文开关；
+  CI：release 全变体（CPU/CUDA12/CUDA13/Linux）+ CUDA13 工具链
+- 1.0.0：M1 核心流水线 / M2 主窗 UI / M3 翻译 / M4 悬浮窗 / M5 导出+模型管理 / CUDA 接入 / M6 打包 全部完成
+- 产物（推送 `v1.0.1` tag 自动构建，Actions 产生草稿 Release，共 5 个）：
+  - `LiveTranslator_1.0.1_x64-cpu-setup.exe`（Windows NSIS 中文安装器，CPU 版）
+  - `LiveTranslator_1.0.1_x64-cuda13-setup.exe`（Windows CUDA 13 版，需 CUDA 13 运行时，驱动 ≥ 580）
+  - `LiveTranslator_1.0.1_x64-cuda12-setup.exe`（Windows CUDA 12 版，需 CUDA 12 运行时）
+  - `LiveTranslator_1.0.1_amd64.AppImage` / `live-translator_1.0.1_amd64.deb`（Linux，ALSA 音频兜底；PipeWire 完整版本地自建）
 - 安装后首次使用：把 `models/` 目录放到安装目录旁（或设置页指定模型目录），
   模型管理页确认 5 个条目就绪
 - 标识符仍为 `dev.live-translator.app`（保持既有用户配置/模型目录兼容，
