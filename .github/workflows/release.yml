@@ -55,6 +55,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # sherpa C++ 静态编译需要完整 MSVC 环境（cl.exe/INCLUDE/LIB）
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -142,10 +146,9 @@ jobs:
   # CUDA 12 版：目标机装有 CUDA 12 运行时的场景（工具链配置取自
   # 早期 build-cuda 提交：windows-2022 + toolkit 12.8.1 + msvc-dev-cmd）
   build-windows-cuda12:
-    # 实验性：windows-2022 上 sherpa 静态编译尚待验证（CPU/CUDA13 已移回
-    # windows-latest）；失败不阻塞 Release（从 needs 中移除，产物可选附带）
+    # 已验证可编译（早期 build-cuda 同配置成功）：关键在于 msvc-dev-cmd
+    # 提供 sherpa 静态编译所需的完整 MSVC 环境（cl.exe/INCLUDE/LIB）
     runs-on: windows-2022
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -193,7 +196,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-linux, build-windows, build-windows-cuda13]
+    needs: [build-linux, build-windows, build-windows-cuda13, build-windows-cuda12]
     runs-on: ubuntu-latest
     permissions:
       contents: write
