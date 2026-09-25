@@ -50,7 +50,8 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    runs-on: windows-2022
+    # sherpa-onnx 静态编译在 windows-latest 上验证通过（windows-2022 会链接失败）
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -87,8 +88,10 @@ jobs:
           if-no-files-found: error
 
   build-windows-cuda13:
-    # 内置翻译引擎 GPU 推理版：需目标机装有 CUDA 13 运行时（驱动 ≥ 580）
-    runs-on: windows-2022
+    # 内置翻译引擎 GPU 推理版：需目标机装有 CUDA 13 运行时（驱动 ≥ 580）。
+    # CUDA 13.2 支持 VS2026（windows-latest）；其 CCCL 要求标准预处理器，
+    # 经 NVCC_APPEND_FLAGS 向宿主编译器传 /Zc:preprocessor
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -122,6 +125,7 @@ jobs:
         run: pnpm tauri build -- --no-default-features --features cuda
         env:
           CUDA_COMPUTE_CAP: "86"
+          NVCC_APPEND_FLAGS: "-Xcompiler /Zc:preprocessor -DCCCL_IGNORE_MSVC_TRADITIONAL_PREPROCESSOR_WARNING"
 
       - name: Rename bundle (mark cuda13)
         shell: pwsh
@@ -138,7 +142,10 @@ jobs:
   # CUDA 12 版：目标机装有 CUDA 12 运行时的场景（工具链配置取自
   # 早期 build-cuda 提交：windows-2022 + toolkit 12.8.1 + msvc-dev-cmd）
   build-windows-cuda12:
+    # 实验性：windows-2022 上 sherpa 静态编译尚待验证（CPU/CUDA13 已移回
+    # windows-latest）；失败不阻塞 Release（从 needs 中移除，产物可选附带）
     runs-on: windows-2022
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -186,7 +193,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-linux, build-windows, build-windows-cuda13, build-windows-cuda12]
+    needs: [build-linux, build-windows, build-windows-cuda13]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -205,4 +212,4 @@ jobs:
             artifacts/linux-bundles/*.deb
             artifacts/windows-cpu-bundle/*.exe
             artifacts/windows-cuda13-bundle/*.exe
-            artifacts/windows-cuda12-bundle/*.exe
+            artifacts/windows-cuda12-bundle/*cuda12*.exe
